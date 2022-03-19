@@ -9,15 +9,15 @@ const issueNumber = context.params.event.issue.number;
 const generalObject = storedFunctions.generalParams(issueNumber);
 const now = moment();
 
-// IF COMMENT concerning payout
+// IF COMMENT -> PAYOUT
 if (commentBody.includes(storedVariables.payoutPhrase)) {
     console.log('PAYOUT REGISTERED');
-    // try to pull data about previously stored transaction from cloudflare (solving failed transactions)
+    // try to pull data about previously stored Pull Object from cf (solving failed transactions)
     let storedPull = await storedFunctions.getStoredData(
         process.env.CLDFLR_PULLS_NAMESPACE,
         issueNumber
     );
-    // IF there is stored transaction
+    // IF there is stored Pull Object
     if (storedPull.result !== null) {
         // PUSH new transaction into array of transactions bound to this PR
         prObject = storedFunctions.makePullObject(
@@ -30,7 +30,7 @@ if (commentBody.includes(storedVariables.payoutPhrase)) {
             storedPull,
             issueNumber
         );
-        // IF there is no stored transaction, store whole Pull Object with data described in readme.md
+        // IF there is no stored Pull Object, store new with data described in readme.md
     } else {
         prObject = storedFunctions.makePullObject(
             await storedFunctions.getPull(generalObject),
@@ -54,14 +54,15 @@ else if (!storedVariables.goPhrases.includes(commentBody)) {
     console.log('COMMENT WITHOUT GO PHRASE');
     return true;
 
-    // IF COMMENT includes goPhrase
+// IF COMMENT includes goPhrase
 } else {
     console.log('THERE WAS A GO PHRASE:', commentBody);
+    // try to pull data about previously stored Issue Object from cf
     let storedIssue = await storedFunctions.getStoredData(
         process.env.CLDFLR_ISSUES_NAMESPACE,
         issueNumber
     );
-    // IF previous storedIssue EXISTS
+    // IF previous Issue Object EXISTS
     if (storedIssue.result !== null) {
         // IF PR was already opened
         if (storedIssue.prOpened !== '') {
@@ -72,7 +73,7 @@ else if (!storedVariables.goPhrases.includes(commentBody)) {
             );
             return;
         }
-        // IF goPhrase author IS current assignee
+        // IF goPhrase author IS current assignee of stored Issue Object
         if (storedIssue.assignee === commentCreator) {
             // AND lockedPeriod continues
             if (now < moment(storedIssue.lockedPeriod)) {
@@ -96,8 +97,8 @@ else if (!storedVariables.goPhrases.includes(commentBody)) {
                     )
                 );
             }
-            // IF goPhrase NOT current assignee
-            // AND lockedPeriod continues
+        // IF goPhrase author NOT current assignee of stored Issue Object
+        // AND lockedPeriod continues
         } else if (now < moment(storedIssue.lockedPeriod)) {
             // COMMENT errorMessage
             await storedFunctions.createComment(
@@ -108,9 +109,10 @@ else if (!storedVariables.goPhrases.includes(commentBody)) {
                 )
             );
             return;
-            // IF goPhrase NOT current assignee
-            // AND lockedPeriod is over
+        // IF goPhrase NOT current assignee of stored Issue Object
+        // AND lockedPeriod is over
         } else {
+            //STORE, ASSIGN AND COMMENT
             await storedFunctions.storeAssignComment(
                 generalObject,
                 storedIssue,
@@ -119,8 +121,9 @@ else if (!storedVariables.goPhrases.includes(commentBody)) {
                 now
             );
         }
-        // IF no storedIssue exists
+    // IF no stored Issue Object exists
     } else {
+        //STORE, ASSIGN AND COMMENT
         await storedFunctions.storeAssignComment(
             generalObject,
             storedIssue,

@@ -1,8 +1,7 @@
 const moment = require('moment-timezone');
 module.exports = {
-    payoutPhrase: 'Perfect, I’ve sent the payout',
     dateFormat: 'dddd, MMMM Do YYYY, kk:mm:ss',
-    ignoredUsers: ['bunch of users youd like to skip'],
+    ignoredUsers: ['bunch of comment creators you would like to skip checking'],
     bountyTimes: {
         $: 24,
         $$: 48,
@@ -10,6 +9,9 @@ module.exports = {
         $$$$: 96,
         $$$$$: 120,
     },
+    //phrase triggering storing of Pull Object
+    payoutPhrase: 'Perfect, I’ve sent the payout',
+    //phrases triggering storing of Issue Object
     goPhrases: [
         'I take this',
         'I take this.',
