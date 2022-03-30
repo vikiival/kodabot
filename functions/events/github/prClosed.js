@@ -56,7 +56,7 @@ if (prMerged) {
             let onePull = tempPulls[i]
             console.log('onePull', onePull)
             let storedPull = await functions.getStoredData(
-                process.env.CLDFLR_PULLS_NAMESPACE,
+                process.env.CLDFLR_PULLS,
                 onePull
             );
             console.log('storedPull.result', storedPull.result)
