@@ -7,7 +7,7 @@ const moment = require('moment');
 const prBody = context.params.event.pull_request.body
 const prNumber = context.params.event.pull_request.number;
 const prAuthor = context.params.event.pull_request.user.login;
-const prMerged = context.params.pull_request.merged
+const prMerged = context.params.event.pull_request.merged
 
 if (variables.ignoredUsers.includes(prAuthor)) {
     return
@@ -23,6 +23,11 @@ let storedIssue = await functions.getStoredDataAC(
 let tempPulls = await functions.getTempPullsAC()
 console.log(tempPulls)
 let unpaidPulls = await functions.getUnpaidPullsAC()
+console.log(unpaidPulls)
+// if unpaidPulls KV is empty, create new empty array
+if (unpaidPulls === null) {
+    unpaidPulls = []
+}
 // if tempPulls KV is empty, create new empty array
 if (tempPulls === null) {
     tempPulls = []
