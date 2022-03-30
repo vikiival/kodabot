@@ -80,7 +80,7 @@ if (prMerged) {
             console.log('leaderboard', leaderboard)
             const sha = await functions.getSHALeaderboard()
             console.log('sha', sha)
-            leaderboard = functions.updateLeaderboard(tempPulls, leaderboard)
+            leaderboard = await functions.updateLeaderboard(tempPulls, leaderboard)
             console.log('updatedLeaderboard', leaderboard)
             let mdTable = functions.generateMdTable(leaderboard)
             console.log('mdTable', mdTable)
