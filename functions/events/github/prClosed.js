@@ -77,6 +77,9 @@ if (prMerged) {
         if (checks.checkTempPullsFull(tempPulls)) {
             // generate empty array for leaderboard
             let leaderboard = await functions.getLeaderboard()
+            if (leaderboard.result === null) {
+                leaderboard = []
+            }
             console.log('leaderboard', leaderboard)
             const sha = await functions.getSHALeaderboard()
             console.log('sha', sha)
