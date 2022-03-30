@@ -298,7 +298,7 @@ module.exports = {
             ).body.toString()
         ).result;
         for (let i = 0; i < keysObject.length; i++) {
-            keysArray.push(keysObject[i].name)
+            keysArray.push(parseInt(keysObject[i].name))
         }
         return keysArray
     },
@@ -422,7 +422,8 @@ module.exports = {
         let linkToLastSubscan = ''
         for (let i = 0; i < storedPull.transactions.length; i++) {
             let oneTransaction = storedPull.transactions[i];
-            if (oneTransaction.transactionResult === 'Success' || oneTransaction.transactionResult === 'accounting') {
+            // NULL NEEDS TO BE HANDLED WITH SUBSCAN API
+            if (oneTransaction.transactionResult === 'Success' || oneTransaction.transactionResult === 'accounting' || oneTransaction.transactionResult === 'null') {
                 dollarValue += oneTransaction.paidUsd
                 kusamaValue += oneTransaction.paidKsm
                 if (linkToLastSubscan === '') {
@@ -457,7 +458,8 @@ module.exports = {
 
         for (let i = 0; i < storedPull.transactions.length; i++) {
             let oneTransaction = storedPull.transactions[i];
-            if (oneTransaction.transactionResult === 'Success' || oneTransaction.transactionResult === 'accounting') {
+            // NULL NEEDS TO BE HANDLED WITH SUBSCAN API
+            if (oneTransaction.transactionResult === 'Success' || oneTransaction.transactionResult === 'accounting' || oneTransaction.transactionResult === 'null') {
                 storedLeaderboardRecord.totalAmountReceivedUSD += oneTransaction.paidUsd
                 storedLeaderboardRecord.totalAmountReceivedKSM += oneTransaction.paidKsm
                 if (moment(storedLeaderboardRecord.lastMergedPrDate) < moment(storedPull.prMergedDate)) {
