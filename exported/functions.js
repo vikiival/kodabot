@@ -316,7 +316,6 @@ module.exports = {
             }
         }
         storedIssue = module.exports.removeOptionHolderFromQueue(storedIssue)
-        console.log('storing data after toggling option', storedIssue)
         await module.exports.storeIssueAC(issueNumber, storedIssue);
     },
     removeOptionHolderFromQueue: (storedIssue) => {
@@ -337,10 +336,8 @@ module.exports = {
         )
     },
     devInfoUpdate: async (devInfo, devLogin, issueNumber, prMerged) => {
-        console.log('devInfoBeginning - start', devInfo)
         if (devInfo.assigned.includes(issueNumber)) {
             for (let i = 0; i < devInfo.assigned.length; i++) {
-                console.log('devInfo.assigned[i]', devInfo.assigned[i], 'issueNumber', issueNumber)
                 if (devInfo.assigned[i] === issueNumber) {
                     devInfo.assigned.splice(i, 1);
                 }
@@ -351,7 +348,6 @@ module.exports = {
         } else {
             devInfo.finished.push(issueNumber)
         }
-        console.log('devInfoBeginning - end', devInfo)
         await module.exports.storeDevInfo(
             process.env.CLDFLR_DEVS,
             devInfo,
@@ -488,7 +484,6 @@ module.exports = {
         now
     ) => {
         // GET bountyTime
-        console.log('devInfo pulled', devInfo);
         let bountyLabel = await module.exports.getLabels(
             apiObject,
             variables.bountyTimes
@@ -520,7 +515,6 @@ module.exports = {
                 unfinished: [],
             };
         }
-        console.log('devInfo being stored', devInfo);
         await module.exports.storeDevInfo(
             process.env.CLDFLR_DEVS,
             devInfo,
@@ -531,7 +525,6 @@ module.exports = {
             apiObject,
             variables.successAssign(commentCreator, bountyLabel, lockedPeriod)
         );
-        console.log('storedIssue being stored', storedIssue)
         await module.exports.storeIssueAC(
             issueNumber,
             storedIssue
