@@ -6,7 +6,7 @@ const moment = require('moment');
 
 unassigned = context.params.event.assignee.login;
 sender = context.params.event.sender.login;
-issueNumber = context.params.event.issue.number;
+issueNumber = parseInt(context.params.event.issue.number);
 const now = moment();
 const generalObject = functions.generalParams(issueNumber);
 let storedIssue = await functions.getStoredDataAC(

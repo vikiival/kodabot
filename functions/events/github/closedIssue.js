@@ -2,7 +2,7 @@ const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
 const functions = require('../../../exported/functions.js');
 const checks = require('../../../exported/checks.js');
 
-issueNumber = context.params.event.issue.number;
+issueNumber = parseInt(context.params.event.issue.number);
 
 
 let storedIssue = await functions.getStoredDataAC(
