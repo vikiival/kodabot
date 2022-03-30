@@ -212,7 +212,7 @@ module.exports = {
         })
     },
     getUnpaidPullsAC: async () => {
-        await lib.utils.kv['@0.1.16'].get({
+        return await lib.utils.kv['@0.1.16'].get({
             key: 'unpaidPulls'
         })
     },
