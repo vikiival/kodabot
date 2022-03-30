@@ -2,6 +2,7 @@ const moment = require('moment');
 module.exports = {
     dateFormat: 'dddd, MMMM Do YYYY, kk:mm:ss',
     ignoredUsers: ['bunch of comment creators you would like to skip checking'],
+    ignoredStorage: ['tempPulls', 'unpaidPulls'],
     bountyTimes: {
         $: 24,
         $$: 48,
