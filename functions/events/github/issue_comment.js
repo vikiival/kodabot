@@ -16,7 +16,7 @@ if (checks.checkPayoutPhrases(commentBody)) {
     // PULL NEEDS REFACTOR BECAUSE OF storeIssueAC
     // try to pull data about previously stored Pull Object from cf (solving failed transactions)
     let storedPull = await functions.getStoredData(
-        process.env.CLDFLR_PULLS_NAMESPACE,
+        process.env.CLDFLR_PULLS,
         issueNumber
     );
     // IF there is stored Pull Object
