@@ -12,7 +12,7 @@ const prMerged = context.params.event.pull_request.merged
 if (variables.ignoredUsers.includes(prAuthor)) {
     return
 }
-let issueNumber = variables.prClosingIssue(prBody).toString().trim();
+let issueNumber = parseInt(variables.prClosingIssue(prBody).toString().trim())
 let generalObject = functions.generalParams(prNumber);
 let now = moment()
 // get storedIssue object from temp. storage
@@ -41,10 +41,10 @@ if (prMerged) {
         // if dev info exists, update (move issue from assigned to finished)
         await functions.devInfoUpdate(devInfo, prAuthor, issueNumber, prMerged)
     }
-    // // THIS SHOULD HAPPEN ONLY WITH CLOSED ISSUE delete storedIssue from temp. storage
-    // await functions.deleteStoredDataAC(
-    //     issueNumber
-    // );
+    // delete storedIssue from temp. storage
+    await functions.deleteStoredDataAC(
+        issueNumber
+    );
     // if this pull is not in temp storage, add it to the end
     if (!tempPulls.includes(prNumber)) {
         tempPulls.push(prNumber)
@@ -54,6 +54,7 @@ if (prMerged) {
         // look for payout data
         for (let i = 0; i < tempPulls.length; i++) {
             let onePull = tempPulls[i]
+            console.log('onePull', onePull)
             let storedPull = await functions.getStoredData(
                 process.env.CLDFLR_PULLS_NAMESPACE,
                 onePull
