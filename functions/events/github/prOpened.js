@@ -25,6 +25,7 @@ if (storedIssue.assignee === prAuthor) {
         issueNumber,
         storedIssue
     );
+    console.log('updated stored issue with PR opened:', storedIssue.prOpened)
     // successComment on PR
     await functions.createComment(
         generalObject,

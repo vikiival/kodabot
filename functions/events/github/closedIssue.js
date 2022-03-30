@@ -10,6 +10,7 @@ let storedIssue = await functions.getStoredDataAC(
 );
 
 if (checks.checkStoredIssueExists(storedIssue)) {
+    console.log('closing stored issue:', storedIssue)
     if (checks.checkPrOpened(storedIssue)) {
         console.log(`PR OPENED FOR ISSUE ${issueNumber}, rest handled in prClosed`)
     } else {
