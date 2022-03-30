@@ -85,10 +85,10 @@ if (prMerged) {
             let mdTable = functions.generateMdTable(leaderboard)
             console.log('mdTable', mdTable)
             await functions.updateLeaderboardGH(generalObject, mdTable, now, sha)
+            await functions.storeUnpaidPullsAC(unpaidPulls)
+            await functions.storeTempPullsAC([])
         }
     }
-    await functions.storeUnpaidPullsAC(unpaidPulls)
-    await functions.storeTempPullsAC([])
 } else {
     storedIssue.prOpened = ''
     await functions.storeIssueAC(issueNumber, storedIssue);
