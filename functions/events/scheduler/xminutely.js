@@ -11,6 +11,7 @@ console.log(openAssignments)
 // get key for all open assignments
 if (openAssignments.length > 0) {
     for (let i in openAssignments) {
+        if (variables.ignoredStorage.includes(openAssignments[i][0])) { continue; }
         let issueNumber = openAssignments[i][0]
         let storedIssue = openAssignments[i][1]
         if (checks.checkEmptyIssue(storedIssue)) {
