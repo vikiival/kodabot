@@ -19,11 +19,12 @@ let now = moment()
 let storedIssue = await functions.getStoredDataAC(
     issueNumber
 );
+console.log('storedIssue', storedIssue)
 // get tempPulls object from temp. storage
 let tempPulls = await functions.getTempPullsAC()
-console.log(tempPulls)
+console.log('tempPulls', tempPulls)
 let unpaidPulls = await functions.getUnpaidPullsAC()
-console.log(unpaidPulls)
+console.log('unpaidPulls', unpaidPulls)
 // if unpaidPulls KV is empty, create new empty array
 if (unpaidPulls === null) {
     unpaidPulls = []
@@ -40,10 +41,10 @@ if (prMerged) {
         // if dev info exists, update (move issue from assigned to finished)
         await functions.devInfoUpdate(devInfo, prAuthor, issueNumber, prMerged)
     }
-    // delete storedIssue from temp. storage
-    await functions.deleteStoredDataAC(
-        issueNumber
-    );
+    // // THIS SHOULD HAPPEN ONLY WITH CLOSED ISSUE delete storedIssue from temp. storage
+    // await functions.deleteStoredDataAC(
+    //     issueNumber
+    // );
     // if this pull is not in temp storage, add it to the end
     if (!tempPulls.includes(prNumber)) {
         tempPulls.push(prNumber)
@@ -57,6 +58,7 @@ if (prMerged) {
                 process.env.CLDFLR_PULLS_NAMESPACE,
                 onePull
             );
+            console.log('storedPull.result', storedPull.result)
             // if there's no payout data about merged PR, store it in unpaidPulls
             if (storedPull.result === null) {
                 unpaidPulls.push(onePull)

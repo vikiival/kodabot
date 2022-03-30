@@ -340,6 +340,7 @@ module.exports = {
         console.log('devInfoBeginning - start', devInfo)
         if (devInfo.assigned.includes(issueNumber)) {
             for (let i = 0; i < devInfo.assigned.length; i++) {
+                console.log('devInfo.assigned[i]', devInfo.assigned[i], 'issueNumber', issueNumber)
                 if (devInfo.assigned[i] === issueNumber) {
                     devInfo.assigned.splice(i, 1);
                 }
