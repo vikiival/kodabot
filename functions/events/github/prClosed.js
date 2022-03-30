@@ -77,10 +77,13 @@ if (prMerged) {
         if (checks.checkTempPullsFull(tempPulls)) {
             // generate empty array for leaderboard
             let leaderboard = await functions.getLeaderboard()
+            console.log('leaderboard', leaderboard)
             const sha = await functions.getSHALeaderboard()
+            console.log('sha', sha)
             leaderboard = functions.updateLeaderboard(tempPulls, leaderboard)
+            console.log('updatedLeaderboard', leaderboard)
             let mdTable = functions.generateMdTable(leaderboard)
-            console.log(mdTable)
+            console.log('mdTable', mdTable)
             await functions.updateLeaderboardGH(generalObject, mdTable, now, sha)
         }
     }
