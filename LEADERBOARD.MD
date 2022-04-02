@@ -25,9 +25,10 @@
 | LatinSoul  | $100.17/0.36KSM  | $100.17/1       | 3              | 1         | 2          | 32/32                  | 7                  | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x14101d25cb4ddc73159dfadabba18c6e3f98fa369dfce47cefde7699d964a538) |
 | magrisya  | $99.94/0.72KSM  | $99.94/1       | 2              | 1         | 1          | 639/0                  | 8                  | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x9d2eeb9bd4f32b95bdefb9bff7f84025eb46473f3844c6107cb02613d85570a5) |
 | fairywellos  | $52.95/0.12KSM  | $52.95/1       | 2              | 1         | 1          | 22/3                  | 9                  | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x9b8c61de44f59da4d0ba0ffda3b732470435bc9042604fe3c2f04a3df2585542) |
+| kodaDev0485  | $50/0.27KSM  | $50/1       | 1              | 1         | 0          | 2/2                  | 1                  | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x8220eacad05f9d04b1f1b3d3daf1e752d021ec93dc5e1a85f580eca64401a8db) |
 | vikiival  | $0/0KSM  | $0/1       | 1              | 1         | 0          | 85/22                  | 4                  | [Link to last transaction]() |
 | JKrupinski  | $0/0KSM  | $0/1       | 1              | 1         | 0          | 92/32                  | 7                  | [Link to last transaction]() |
 | yangwao  | $0/0KSM  | $0/1       | 1              | 1         | 0          | 1/1                  | 1                  | [Link to last transaction]() |
 
  
- **LEADERBOARD TABLE GENERATED AT Apr 1st 2022 FROM 1000 PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
+ **LEADERBOARD TABLE GENERATED AT Apr 2nd 2022 FROM 1000 PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
