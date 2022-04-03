@@ -3,8 +3,8 @@
 | prachi00 | $9086.73/42.22KSM | $9086.73/101 | 110 | 101 | 9 | 2793/3250 | 516 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x8220eacad05f9d04b1f1b3d3daf1e752d021ec93dc5e1a85f580eca64401a8db) |
 | kkukelka | $8250.41/38.71KSM | $8250.41/72 | 74 | 72 | 2 | 6911/3253 | 291 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x9703cb6682700b1c997cb40d0c9da3fb564b5bd87cca95de51b7dbdf8f2d641b) |
 | Jarsen136 | $3003.6/20.7KSM | $3003.6/30 | 32 | 30 | 2 | 966/1442 | 95 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x59c3dfd5c70cbae3de2cc4e5b3117686fc2c9ef01903963fd3fc2835ea2c09d4) |
+| petersopko | $1649.51/10.14KSM | $1649.51/23 | 25 | 23 | 2 | 417/134 | 63 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x1a84faa9277ae1a95323220b48a9c41c2ec2de5a548cf310c7a5cbbd5fa420fd) |
 | preschian | $1603.13/9.93KSM | $1603.13/15 | 16 | 15 | 1 | 17586/18608 | 121 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0xc345ec04d4c6449cd86d05f2521c84cea42663453f49a2ef98557b93f7c13dba) |
-| petersopko | $1599.51/9.87KSM | $1599.51/22 | 24 | 22 | 2 | 416/134 | 62 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x1a84faa9277ae1a95323220b48a9c41c2ec2de5a548cf310c7a5cbbd5fa420fd) |
 | chandradot99 | $1204.47/5.96KSM | $1204.47/9 | 9 | 9 | 0 | 900/146 | 43 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0xa60c8eda47807651d47079645ac2a23241e38ec6f5f434b229eebbcdd1fa4c10) |
 | pandasamanvaya | $1098.42/4.32KSM | $1098.42/17 | 18 | 17 | 1 | 1560/455 | 68 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0xa2b431d8f528ad863174d5378f89fd90016c872a227f06b4d1714c652c3a18d9) |
 | rhaicode | $954.79/3.06KSM | $954.79/4 | 7 | 4 | 3 | 1001/667 | 32 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0xdf0621c718394966b2bf3df5dcf74b988c62e9aa01e13a1ea3014e1ad9b92889) |
@@ -27,4 +27,4 @@
 | fairywellos | $52.95/0.12KSM | $52.95/1 | 2 | 1 | 1 | 22/3 | 9 | [Link to last transaction](https://kusama.subscan.io/extrinsic/0x9b8c61de44f59da4d0ba0ffda3b732470435bc9042604fe3c2f04a3df2585542) |
 
  
- **LEADERBOARD TABLE GENERATED AT Apr 3rd 2022 FROM 6 PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
+ **LEADERBOARD TABLE GENERATED AT Apr 3rd 2022 FROM 7 PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
