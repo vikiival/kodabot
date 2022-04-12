@@ -6,7 +6,6 @@
 3. Branch for bot needs to be created on GitHub and settings adjusted in settings.js
 4. Cloudflare Account specs need to be set in environment variables, namespaces for Devs, Pulls and Tables need to be created in KV Workers section manually at
    https://dash.cloudflare.com/${yourAccountId}/workers/kv/namespaces
-5. Tables namespace need to be populated with leaderboard data in init.js (pulls not required)
 6. Comment messages and settings need to be adjusted in settings.js
 7. Bot has currently two main parts: **assign** and **payout**.
 

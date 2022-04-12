@@ -17,40 +17,7 @@
          * @returns pull request object based on data from GitHub
          * */
         getPullRequest: async (prNumber) => {
-            let queryResult = await graphql(
-                `
-            query getPullRequest($repo: String!, $owner: String!, $prNumber: Int!) {
-              repository(name: $repo, owner: $owner) {
-                pullRequest(number: $prNumber) {
-                  additions
-                  author {
-                    login
-                  }
-                  closedAt
-                  comments(first: 100) {
-                    nodes {
-                      body
-                    }
-                    totalCount
-                  }
-                  closingIssuesReferences(first: 20) {
-                    nodes {
-                      number
-                    }
-                  }
-                  deletions
-                  commits {
-                    totalCount
-                  }
-                  mergedAt
-                  merged
-                  number
-                  url
-                  state
-                }
-              }
-            }
-          `,
+            let queryResult = await graphql(shared.queries.getPullRequest,
                 {
                     repo: process.env.GITHUB_REPO,
                     owner: process.env.GITHUB_OWNER,
@@ -208,18 +175,7 @@
          * @desc URL needs to be adjusted in settings
          */
         getLeaderboardKey: async () => {
-            const queryResult = await graphql(
-                `
-    query getLeaderboardKey($owner: String!, $repo: String!, $gitPath: String!) {
-      repository(owner: $owner, name: $repo) {
-        object(expression: $gitPath) {
-          ... on Blob {
-            oid
-          }
-        }
-      }
-    }
-          `,
+            const queryResult = await graphql(shared.queries.getLeaderboardKey,
                 {   repo: process.env.GITHUB_REPO,
                     owner: process.env.GITHUB_OWNER,
                     gitPath: settings.gitPath,
@@ -448,10 +404,27 @@
         },
 
         /**
+         * @returns number of pull request for selected query (MERGED/CLOSED/OPEN)
+         * @param query - graphql query to get total count of desired PR state
+         */
+        getNumberOfPullRequests: async (query) => {
+            const queryResult = await graphql(query,
+                {   name: process.env.GITHUB_REPO,
+                    owner: process.env.GITHUB_OWNER,
+                    headers: {
+                        authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                    },
+                }
+            );
+            return queryResult.repository.pullRequests.totalCount;
+        },
+
+        /**
          * @returns MD version of leaderboard
          * */
         makeLeaderboardMd: async (leaderboard) => {
-            let numOfPRs = (await shared.getAllKeys(process.env.CLDFLR_PULLS)).length;
+            let closedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.closedPullRequestsCount);
+            let mergedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount);
             let mdTable = module.exports.tableHeader;
             for (let i = 0; i < leaderboard.length; i++) {
                 const oneRecord = leaderboard[i];
@@ -465,7 +438,8 @@
             }
             mdTable += module.exports.tableFooter(
                 moment().format('MMM Do YYYY'),
-                numOfPRs
+                mergedPullRequests,
+                closedPullRequests
             );
             return mdTable;
         },
@@ -497,8 +471,8 @@
         tableHeader: `| devName | total amount received |  amount per merged PR | total open PRs | merged PRs | closed PRs | lines added to lines removed| commits merged | total # comments | comments per PR | resolved issues to # of open PR | last transaction  |
     |-|-|-|-|-|-|-|-|-|-|-|-|  \n`,
 
-        tableFooter: (date, numOfPRs) => {
-            return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${numOfPRs} PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
+        tableFooter: (date, mergedPullRequests, closedPullRequests) => {
+            return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${mergedPullRequests} MERGED AND ${closedPullRequests} CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
         },
 
         /**
