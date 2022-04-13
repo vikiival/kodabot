@@ -18,6 +18,7 @@ if (openAssignments.length > 0) {
             if (!shared.checks.prOpened(storedIssue)) {
                 if (shared.checks.assignmentExpired(storedIssue)) {
                     await assign.unassignIssue(issueNumber, storedIssue.assignee);
+                    return
                 }
                 if (shared.checks.optionExpired(storedIssue)) {
                     await shared.createComment(

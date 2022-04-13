@@ -87,7 +87,7 @@ module.exports = {
             devObject = shared.devObject();
             devObject.assigned.push(issueNumber);
         }
-        await shared.storeDevObject(devObject, commentCreator);
+        await shared.storeDataCf(process.env.CLDFLR_DEVS, commentCreator, devObject);
         await shared.storeDataAc(issueNumber, storedIssue);
         await module.exports.assignIssue(issueNumber, commentCreator);
         await shared.createComment(
