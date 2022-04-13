@@ -11,17 +11,17 @@ const prNumber = context.params.event.issue.number;
 if (shared.checks.payoutPhrases(commentBody)) {
     let newPullRequest = await payout.getPullRequest(prNumber)
     if (shared.checks.prMerged(newPullRequest)) {
-        let pullRequest = await shared.getPullObject(prNumber);
+        let pullRequest = await shared.getDataCf(process.env.CLDFLR_PULLS, prNumber);
         if (!shared.checks.emptyPull(pullRequest)) {
             if (shared.checks.addedToLeaderboard(pullRequest)) {
-                await payout.fixLeaderboard(await payout.getLeaderboard(), pullRequest)
+                await payout.fixLeaderboard(await payout.getDataCf(process.env.CLDFLR_TABLE, 'leaderboard'), pullRequest)
             } else {
-                await shared.storePullObject(newPullRequest, pullRequest.prNumber)
+                await shared.storeDataCf(process.env.CLDFLR_PULLS, pullRequest.prNumber, newPullRequest)
             }
         }
         let devObject = shared.getDevObject(newPullRequest.prAuthor)
         if (shared.checks.isInFinishedStreak(devObject, prNumber)) {
-            await shared.storeDevObject(devObject, newPullRequest.prAuthor);
+            await shared.storeDataCf(process.env.CLDFLR_DEVS, newPullRequest.prAuthor, devObject);
             await payout.fixFinishedStreak(devObject, prNumber, payout.getAmountUsdFromPullObject(newPullRequest))
         }
     }

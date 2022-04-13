@@ -40,14 +40,15 @@ module.exports = {
 
     /**
      * @returns pullObject stored on CF
-     * @param prNumber key for CF call
+     * @param namespace for CF call
+     * @param key key for CF call
      * */
-    getPullObject: async (prNumber) => {
+    getDataCf: async (namespace, key) => {
         return JSON.parse(
             (
                 await lib.http.request['@1.1.6']({
                     method: 'GET',
-                    url: module.exports.makeUrl(process.env.CLDFLR_PULLS, prNumber),
+                    url: module.exports.makeUrl(namespace, key),
                     headers: {
                         'X-Auth-Email': process.env.CLDFLR_EMAIL,
                         'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
@@ -59,37 +60,23 @@ module.exports = {
 
     /**
      * @desc Stores prObject on CF
-     * @param pullObject pull object being stored
-     * @param prNumber key under which pull is stored
+     * @param namespace
+     * @param key
+     * @param value
      * */
-    storePullObject: async (pullObject, prNumber) => {
+    storeDataCf: async (namespace, key, value) => {
         await lib.http.request['@1.1.6']({
             method: 'PUT',
-            url: module.exports.makeUrl(process.env.CLDFLR_PULLS, prNumber),
+            url: module.exports.makeUrl(namespace, key),
             headers: {
                 'X-Auth-Email': process.env.CLDFLR_EMAIL,
                 'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
             },
-            body: JSON.stringify(pullObject),
+            body: JSON.stringify(value),
         });
     },
 
-    /**
-     * @desc Stores devObject on CF KV storage
-     * @param devObject object to store on CF
-     * @param devLogin key to 'PUT' on CF
-     * */
-    storeDevObject: async (devObject, devLogin) => {
-        await lib.http.request['@1.1.6']({
-            method: 'PUT',
-            url: module.exports.makeUrl(process.env.CLDFLR_DEVS, devLogin),
-            headers: {
-                'X-Auth-Email': process.env.CLDFLR_EMAIL,
-                'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
-            },
-            body: JSON.stringify(devObject),
-        });
-    },
+
 
     /**
      * @returns devObject stored on CF
@@ -208,7 +195,7 @@ module.exports = {
         if (!devObject.droppedQueue.includes(issueNumber)) {
             devObject.droppedQueue.push(issueNumber);
         }
-        await module.exports.storeDevObject(devObject, devLogin);
+        await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
         if (storedIssue.queue.includes(devLogin)) {
             for (let i = 0; i < storedIssue.queue.length; i++) {
                 if (storedIssue.queue[i] === devLogin) {
@@ -246,7 +233,7 @@ module.exports = {
             devObject.finished.push(issueNumber);
             devObject.finished = [...new Set(devObject.finished)];
         }
-        await module.exports.storeDevObject(devObject, devLogin);
+        await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
     },
 
     checks: {
