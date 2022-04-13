@@ -4,9 +4,8 @@ const octokit = new Octokit({
     auth: process.env.GITHUB_PERSONAL_KEY,
 });
 const moment = require('moment');
-const settings = require("./settings");
+const settings = require('./settings');
 module.exports = {
-
     /**
      * @returns modified Cloudflare URL for various CF calls
      * @param namespace for CF KV workers
@@ -96,7 +95,6 @@ module.exports = {
                 })
             ).body.toString()
         ),
-
 
     /**
      * @desc Creates comment on GH
@@ -210,7 +208,7 @@ module.exports = {
             storedIssue.optionPeriod = null;
         }
         await module.exports.storeDataAc(issueNumber, storedIssue);
-        return storedIssue
+        return storedIssue;
     },
 
     /**
@@ -230,16 +228,15 @@ module.exports = {
         }
         if (!prMerged) {
             devObject.unfinished.push(issueNumber);
-            devObject.unfinished = [... new Set(devObject.unfinished)]
+            devObject.unfinished = [...new Set(devObject.unfinished)];
         } else {
             devObject.finished.push(issueNumber);
-            devObject.finished = [... new Set(devObject.finished)]
+            devObject.finished = [...new Set(devObject.finished)];
         }
         await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
     },
 
     checks: {
-
         /**
          * @returns true if dev assignment limit (5 issues) was reached
          */
@@ -360,7 +357,8 @@ module.exports = {
          */
         storedIssueTemp: (storedIssue) => {
             return (
-                storedIssue.assignee !== null && storedIssue.timeOfAssignment !== null &&
+                storedIssue.assignee !== null &&
+                storedIssue.timeOfAssignment !== null &&
                 storedIssue.prOpened === null &&
                 storedIssue.optionHolder === null &&
                 storedIssue.optionPeriod === null &&
@@ -387,13 +385,15 @@ module.exports = {
          * @returns true if it's safe to delete the issue from temp storage on AC KV storage
          */
         emptyIssue: (storedIssue) => {
-            return storedIssue.assignee === null &&
+            return (
+                storedIssue.assignee === null &&
                 storedIssue.timeOfAssignment === null &&
                 storedIssue.assignmentPeriod === null &&
                 storedIssue.optionHolder === null &&
                 storedIssue.optionPeriod === null &&
                 storedIssue.prOpened === null &&
                 storedIssue.queue.length === 0
+            );
         },
 
         /**
@@ -401,7 +401,7 @@ module.exports = {
          */
         mergedAndPaidFull: (mergedAndPaid) => {
             if (mergedAndPaid === null) {
-                return false
+                return false;
             }
             return mergedAndPaid.length >= settings.mergedAndPaidLimit;
         },
@@ -425,7 +425,7 @@ module.exports = {
          */
         prAuthorIsAssigned: (storedIssue, prAuthor) => {
             if (storedIssue === null) {
-                return false
+                return false;
             }
             return storedIssue.assignee === prAuthor;
         },
@@ -434,8 +434,8 @@ module.exports = {
          * @returns true if there was a linked issue in PR body
          */
         linkedIssueNumber: (issueNumber) => {
-            if (issueNumber === undefined){
-                return false
+            if (issueNumber === undefined) {
+                return false;
             }
             return issueNumber !== 0;
         },
@@ -452,34 +452,39 @@ module.exports = {
          */
         addedToLeaderboard: (pullObject) => {
             if (pullObject === null) {
-                return false
+                return false;
             }
-            return pullObject.prLeaderboard
+            return pullObject.prLeaderboard;
         },
 
         /**
          * @returns true if record is missing from leaderboard
          * */
         missingFromLeaderboard: (leaderboardRecord) => {
-            return leaderboardRecord === undefined
+            return leaderboardRecord === undefined;
         },
 
         /**
          * @returns true if mergedDate from PR is more recent than mergeDate store in leaderboard record
          * */
         newMergeDate: (storedLeaderboardRecord, storedPull) => {
-            if (storedPull.prMergedDate === null || storedLeaderboardRecord.lastMergedPrDate === null) {
-                return false
+            if (
+                storedPull.prMergedDate === null ||
+                storedLeaderboardRecord.lastMergedPrDate === null
+            ) {
+                return false;
             }
-            return moment(storedLeaderboardRecord.lastMergedPrDate) <
+            return (
+                moment(storedLeaderboardRecord.lastMergedPrDate) <
                 moment(storedPull.prMergedDate)
+            );
         },
 
         /**
          * @returns true if PR was merged
          * */
         prMerged: (pullRequest) => {
-            return pullRequest.prState === 'MERGED'
+            return pullRequest.prState === 'MERGED';
         },
 
         /**
@@ -488,10 +493,74 @@ module.exports = {
         isInFinishedStreak: (devObject, prNumber) => {
             for (let i = 0; i < devObject.finishedStreak.length; i++) {
                 if (devObject.finishedStreak[i].prNumber === prNumber) {
-                    return true
+                    return true;
                 }
             }
-            return false
-        }
-    }
-}
+            return false;
+        },
+    },
+    queries: {
+        mergedPullRequestsCount: `
+                query mergedPullRequestsCount($name: String!, $owner: String!, $states: [PullRequestState!] = MERGED) {
+                  repository(name: $name, owner: $owner) {
+                    pullRequests(states: $states) {
+                      totalCount
+                    }
+                  }
+                }
+                `,
+        closedPullRequestsCount: `
+                query closedPullRequestsCount($name: String!, $owner: String!, $states: [PullRequestState!] = CLOSED) {
+                  repository(name: $name, owner: $owner) {
+                    pullRequests(states: $states) {
+                      totalCount
+                    }
+                  }
+                }
+                `,
+        getLeaderboardKey: `
+                query getLeaderboardKey($owner: String!, $repo: String!, $gitPath: String!) {
+                  repository(owner: $owner, name: $repo) {
+                    object(expression: $gitPath) {
+                      ... on Blob {
+                        oid
+                      }
+                    }
+                  }
+                }
+                `,
+        getPullRequest: `
+                query getPullRequest($repo: String!, $owner: String!, $prNumber: Int!) {
+                  repository(name: $repo, owner: $owner) {
+                    pullRequest(number: $prNumber) {
+                      additions
+                      author {
+                        login
+                      }
+                      closedAt
+                      comments(first: 100) {
+                        nodes {
+                          body
+                        }
+                        totalCount
+                      }
+                      closingIssuesReferences(first: 20) {
+                        nodes {
+                          number
+                        }
+                      }
+                      deletions
+                      commits {
+                        totalCount
+                      }
+                      mergedAt
+                      merged
+                      number
+                      url
+                      state
+                    }
+                  }
+                }
+                `,
+    },
+};

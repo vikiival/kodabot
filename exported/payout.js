@@ -1,63 +1,47 @@
-const lib = require('lib')({
-    token: process.env.STDLIB_SECRET_TOKEN,
-});
-const moment = require('moment');
-const {Octokit} = require('@octokit/rest');
-const octokit = new Octokit({
-    auth: process.env.GITHUB_PERSONAL_KEY,
-});
-const {graphql} = require('@octokit/graphql');
-const settings = require('./settings');
-const shared = require('./shared');
-const btoa = require('btoa');
+    const lib = require('lib')({
+        token: process.env.STDLIB_SECRET_TOKEN,
+    });
+    const moment = require('moment');
+    const {Octokit} = require('@octokit/rest');
+    const octokit = new Octokit({
+        auth: process.env.GITHUB_PERSONAL_KEY,
+    });
+    const {graphql} = require('@octokit/graphql');
+    const settings = require('./settings');
+    const shared = require('./shared');
+    const btoa = require('btoa');
 
-module.exports = {
+    module.exports = {
 
-    /**
-     * @returns pull request object based on data from GitHub
-     * */
-    getPullRequest: async (prNumber) => {
-        let queryResult = await graphql(
-            `
-            query getPullRequest($repo: String!, $owner: String!, $prNumber: Int!) {
-              repository(name: $repo, owner: $owner) {
-                pullRequest(number: $prNumber) {
-                  additions
-                  author {
-                    login
-                  }
-                  closedAt
-                  comments(first: 100) {
-                    nodes {
-                      body
-                    }
-                    totalCount
-                  }
-                  closingIssuesReferences(first: 20) {
-                    nodes {
-                      number
-                    }
-                  }
-                  deletions
-                  commits {
-                    totalCount
-                  }
-                  mergedAt
-                  merged
-                  number
-                  url
-                  state
+        /**
+         * @returns pull request object based on data from GitHub
+         * */
+        getPullRequest: async (prNumber) => {
+            let queryResult = await graphql(shared.queries.getPullRequest,
+                {
+                    repo: process.env.GITHUB_REPO,
+                    owner: process.env.GITHUB_OWNER,
+                    prNumber: prNumber,
+                    headers: {
+                        authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                    },
                 }
-              }
-            }
-          `,
-            {
-                repo: process.env.GITHUB_REPO,
-                owner: process.env.GITHUB_OWNER,
-                prNumber: prNumber,
-                headers: {
-                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
-                },
+            );
+            queryResult = queryResult.repository.pullRequest
+            return {
+                prLeaderboard: false,
+                prNumber: queryResult.number,
+                prAuthor: queryResult.author.login,
+                prState: queryResult.state,
+                githubLink: queryResult.url,
+                transactions: await module.exports.getTransactions(queryResult.comments.nodes),
+                prMergedDate: queryResult.mergedAt,
+                commits: queryResult.commits.totalCount,
+                linesAdded: queryResult.additions,
+                linesRemoved: queryResult.deletions,
+                commentsCount: queryResult.comments.totalCount,
+                linkedIssues: queryResult.closingIssuesReferences.nodes.map((x) => x.number),
+
             }
         );
         queryResult = queryResult.repository.pullRequest
@@ -203,23 +187,13 @@ module.exports = {
         });
     },
 
+
     /**
      * @returns SHA key for LEADERBOARD.MD file on GH
      * @desc URL needs to be adjusted in settings
      */
     getShaKey: async (gitPath) => {
-        const queryResult = await graphql(
-            `
-    query getLeaderboardKey($owner: String!, $repo: String!, $gitPath: String!) {
-      repository(owner: $owner, name: $repo) {
-        object(expression: $gitPath) {
-          ... on Blob {
-            oid
-          }
-        }
-      }
-    }
-          `,
+        const queryResult = await graphql(shared.queries.getLeaderboardKey,
             {
                 repo: process.env.GITHUB_REPO,
                 owner: process.env.GITHUB_OWNER,
@@ -307,56 +281,34 @@ module.exports = {
         await shared.storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', leaderboard);
     },
 
-    /**
-     * @desc Generates new entry into leaderboard stored on CF KV storage
-     * */
-    makeLeaderboardRecord: async (storedPull) => {
-        let prMerged = storedPull.prState === 'MERGED';
-        let dollarValue = 0;
-        let kusamaValue = 0;
-        let linkToLastSubscan = null;
-        for (let i = 0; i < storedPull.transactions.length; i++) {
-            const oneTransaction = storedPull.transactions[i];
-            if (oneTransaction.transactionResult === true) {
-                dollarValue += oneTransaction.paidUsd;
-                kusamaValue += oneTransaction.paidKsm;
-                linkToLastSubscan = oneTransaction.subscanLink;
-            }
-        }
-        return {
-            devLogin: storedPull.prAuthor,
-            totalAmountReceivedUSD: module.exports.roundTwoDecimals(dollarValue),
-            totalAmountReceivedKSM: module.exports.roundThreeDecimals(kusamaValue),
-            numberOfOpenPrs: 1,
-            mergedPrs: prMerged ? 1 : 0,
-            closedPrs: prMerged ? 0 : 1,
-            linesAdded: prMerged ? storedPull.linesAdded : 0,
-            linesRemoved: prMerged ? storedPull.linesRemoved : 0,
-            numOfTotalCommitsMerged: prMerged ? storedPull.commits : 0,
-            linkToLastSubscan,
-            lastMergedPrDate: prMerged ? storedPull.prMergedDate : null,
-            commentsCount: storedPull.commentsCount,
-            numOfLinkedIssues: storedPull.linkedIssues.length,
-        };
-    },
-
-    /**
-     * @desc Updates one leaderboard record stored
-     * */
-    updateLeaderboardRecord: async (storedPull, leaderboardRecord) => {
-        let prMerged = storedPull.prState === 'MERGED';
-        prMerged
-            ? (leaderboardRecord.mergedPrs += 1)
-            : (leaderboardRecord.closedPrs += 1);
-        leaderboardRecord.numberOfOpenPrs += 1;
-        leaderboardRecord.commentsCount += storedPull.commentsCount;
-        leaderboardRecord.numOfLinkedIssues += storedPull.linkedIssues.length;
-        for (let i = 0; i < storedPull.transactions.length; i++) {
-            const oneTransaction = storedPull.transactions[i];
-            if (oneTransaction.transactionResult === true) {
-                if (shared.checks.newMergeDate(leaderboardRecord, storedPull)) {
-                    leaderboardRecord.linkToLastSubscan = oneTransaction.subscanLink;
+        /**
+         * @returns number of pull request for selected query (MERGED/CLOSED/OPEN)
+         * @param query - graphql query to get total count of desired PR state
+         */
+        getNumberOfPullRequests: async (query) => {
+            const queryResult = await graphql(query,
+                {   name: process.env.GITHUB_REPO,
+                    owner: process.env.GITHUB_OWNER,
+                    headers: {
+                        authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                    },
                 }
+            );
+            return queryResult.repository.pullRequests.totalCount;
+        },
+
+        /**
+         * @returns MD version of leaderboard
+         * */
+        makeLeaderboardMd: async (leaderboard) => {
+            let closedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.closedPullRequestsCount);
+            let mergedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount);
+            let mdTable = module.exports.tableHeader;
+            for (let i = 0; i < leaderboard.length; i++) {
+                const oneRecord = leaderboard[i];
+                if (oneRecord.totalAmountReceivedUSD <= 0) {
+                    continue;
+            }
                 leaderboardRecord.totalAmountReceivedUSD += oneTransaction.paidUsd;
                 leaderboardRecord.totalAmountReceivedKSM += oneTransaction.paidKsm;
             }
@@ -423,9 +375,10 @@ module.exports = {
             if (oneRecord.totalAmountReceivedUSD <= 0) {
                 continue;
             }
-            mdTable += module.exports.makeLeaderboardRecordMd(
-                oneRecord.devLogin,
-                oneRecord
+            mdTable += module.exports.tableFooter(
+                moment().format('MMM Do YYYY'),
+                mergedPullRequests,
+                closedPullRequests
             );
         }
         mdTable += module.exports.tableFooter(
@@ -462,9 +415,10 @@ module.exports = {
     tableHeader: `| devName | total amount received |  amount per merged PR | total open PRs | merged PRs | closed PRs | lines added to lines removed| commits merged | total # comments | comments per PR | resolved issues to # of open PR | last transaction  |
     |-|-|-|-|-|-|-|-|-|-|-|-|  \n`,
 
-    tableFooter: (date, numOfPRs) => {
-        return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${numOfPRs} PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
-    },
+        tableFooter: (date, mergedPullRequests, closedPullRequests) => {
+            return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${mergedPullRequests} MERGED AND ${closedPullRequests} CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
+        },
+
 
     /**
      @desc Record streak of finished issues within 7 days time. Streak is recorded in devObject on Cloudflare KV storage.
