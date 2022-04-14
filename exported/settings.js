@@ -2,14 +2,15 @@ const moment = require('moment');
 module.exports = {
 
     // these need to be adjusted for sure
-    leaderboardTitle: `updateLeaderboard_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
-    burnRateTitle: `burnRate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
+    leaderboardTitle: `leaderboardUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
+    burnRateTitle: `burnRateUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
+    tablesTitle: `tablesUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
     branchName: 'kodabot-update', // name of the branch to be created by bot
     leaderboardPath: `kodabot-update:LEADERBOARD.MD`, // name of the bot branch
     leaderboardFile: 'LEADERBOARD.MD', // name of the leaderboard file
     burnRatePath: `kodabot-update:BURN_RATE.MD`, // name of the bot branch
     burnRateFile: 'BURN_RATE.MD', // name of the burn rate file
-    ignoredUsers: ['yangwao', 'roiLeo', 'vikiiVal'], // users which are not added to the leaderboard
+    ignoredUsers: ['yangwao', 'roiLeo', 'vikiiVal', 'kodadev0485'], // users which are not added to the leaderboard
     linkToLeaderboard: `https://api.github.com/repos/petersopko/kodabot/branches/kodabot-update`, // link to LEADERBOARD.md branch, where bot pushes updates
 
     // for testing, change these
