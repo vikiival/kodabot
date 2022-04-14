@@ -1,5 +1,5 @@
 # KodaBot
-[<img src="https://open.autocode.com/static/images/open.svg?" width="192">](https://autocode.com/app/petersopko/kodabot-v1/)
+<!-- [<img src="https://open.autocode.com/static/images/open.svg?" width="192">](https://autocode.com/app/petersopko/kodabot-v1/) -->
 
 1. Make sure to adjust environment variables
 2. GitHub Personal Key needs to be generated for bot and GitHub account linked on Autocode
@@ -7,7 +7,7 @@
 4. Cloudflare Account specs need to be set in environment variables, namespaces for Devs, Pulls and Tables need to be created in KV Workers section manually at
    https://dash.cloudflare.com/${yourAccountId}/workers/kv/namespaces
 6. Comment messages and settings need to be adjusted in settings.js
-7. Bot has currently two main parts: **assign** and **payout**.
+7. Bot has currently two main parts: **assign** and **payout**
 
 ### Assign:
 - bot gets triggered by one of the `goPhrases` in form of comment under issue
