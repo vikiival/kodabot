@@ -1,5 +1,5 @@
 | devName | total amount received |  amount per merged PR | total open PRs | merged PRs | closed PRs | lines added to lines removed| commits merged | total # comments | comments per PR | resolved issues to # of open PR | last transaction  |
-    |-|-|-|-|-|-|-|-|-|-|-|-|  
+|-|-|-|-|-|-|-|-|-|-|-|-|  
 | prachi00 | $9922.28/47.54KSM | $89.39 | 121 | 111 | 10 | 2955/3463 | 329 | 656 | 5.42 | 104/121 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x9204078d79f0631535d7d54b23a0cbff4cd62ef8e70cde80b5b8d9c5913fce85) |
 | kkukelka | $8295.27/39.755KSM | $115.21 | 76 | 72 | 4 | 7220/3340 | 277 | 362 | 4.76 | 74/76 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x4f6ee9b467d40c2681471a6681245984c30789de8a3ef13b7aeaddde1a48884b) |
 | Jarsen136 | $5501.87/34.626KSM | $105.81 | 55 | 52 | 3 | 2821/1819 | 186 | 419 | 7.62 | 51/55 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x9584cedba95dc54eb2dec18c4c0e176c21feb8182f809f9a566acc51f0d67bb2) |
@@ -29,4 +29,4 @@
 | fairywellos | $52.95/0.12KSM | $52.95 | 2 | 1 | 1 | 40/9 | 9 | 11 | 5.5 | 2/2 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x9b8c61de44f59da4d0ba0ffda3b732470435bc9042604fe3c2f04a3df2585542) |
 
  
- **LEADERBOARD TABLE GENERATED AT Apr 14th 2022 FROM 232 MERGED AND 76 CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
+ **LEADERBOARD TABLE GENERATED AT Apr 14th 2022 FROM 233 MERGED AND 76 CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
