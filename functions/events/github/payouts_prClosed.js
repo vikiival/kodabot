@@ -22,9 +22,9 @@ if (prMerged && prPaid) {
     }
     mergedAndPaid.push(prNumber)
     await shared.storeDataAc(settings.mergedAndPaid, mergedAndPaid)
+    await payout.burnRate.updateBurnRate(pullRequest, await shared.getDataCf(process.env.CLDFLR_TABLES, 'burnRate'));
 }
 await payout.updateLeaderboard(pullRequest, await shared.getDataCf(process.env.CLDFLR_TABLES, 'leaderboard'));
-await payout.burnRate.updateBurnRate(pullRequest, await shared.getDataCf(process.env.CLDFLR_TABLES, 'burnRate'));
 
 if (shared.checks.storedIssueExists(storedIssue)) {
     if (storedIssue.prOpened === prNumber) {
@@ -44,8 +44,7 @@ if (shared.checks.storedIssueExists(storedIssue)) {
 if (shared.checks.mergedAndPaidFull(mergedAndPaid)) {
     let leaderboardMD = await payout.makeLeaderboardMd(await shared.getDataCf(process.env.CLDFLR_TABLES, 'leaderboard'));
     let burnRateMD = await payout.burnRate.makeBurnRateMdTable(await shared.getDataCf(process.env.CLDFLR_TABLES, 'burnRate'));
-    await payout.pushTable(leaderboardMD, settings.leaderboardPath, settings.leaderboardFile, settings.leaderboardTitle);
-    await payout.pushTable(burnRateMD, settings.burnRatePath, settings.burnRateFile, settings.burnRateTitle);
+    await payout.updateTables(leaderboardMD, burnRateMD);
     mergedAndPaid = []
     await shared.storeDataAc(settings.mergedAndPaid, mergedAndPaid)
 }

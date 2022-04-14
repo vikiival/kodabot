@@ -142,6 +142,16 @@ module.exports = {
         return amountKsm;
     },
 
+
+    updateTables: async (leaderboard, burnRate) => {
+        await module.exports.pushTable(leaderboard, settings.leaderboardPath, settings.leaderboardFile, settings.leaderboardTitle)
+        let lastCommitSha = await module.exports.pushTable(burnRate, settings.burnRatePath, settings.burnRateFile, settings.burnRateTitle)
+        let newPull = await module.exports.createPullRequestForBot(settings.tablesTitle);
+        return await module.exports.updateBotBranch(
+            newPull.data.number,
+            lastCommitSha.data.commit.sha
+        );
+    },
     /**
      * @desc merges main into bot branch
      * */
@@ -193,7 +203,7 @@ module.exports = {
      */
     pushTable: async (mdTable, gitPath, fileName, title) => {
         const sha = await module.exports.getShaKey(gitPath);
-        let newSha = await octokit.request(
+        return await octokit.request(
             'PUT /repos/{owner}/{repo}/contents/{path}',
             {
                 owner: process.env.GITHUB_OWNER,
@@ -204,11 +214,6 @@ module.exports = {
                 sha,
                 branch: settings.branchName,
             }
-        );
-        let newPull = await module.exports.createPullRequestForBot(title);
-        return await module.exports.updateBotBranch(
-            newPull.data.number,
-            newSha.data.commit.sha
         );
     },
 
@@ -397,6 +402,9 @@ module.exports = {
             if (oneRecord.totalAmountReceivedUSD <= 0) {
                 continue;
             }
+            if (settings.ignoredUsers.includes(oneRecord.devLogin)) {
+                continue;
+            }
             mdTable += module.exports.makeLeaderboardRecordMd(
                 oneRecord.devLogin,
                 oneRecord
@@ -435,7 +443,7 @@ module.exports = {
     },
 
     tableHeader: `| devName | total amount received |  amount per merged PR | total open PRs | merged PRs | closed PRs | lines added to lines removed| commits merged | total # comments | comments per PR | resolved issues to # of open PR | last transaction  |
-    |-|-|-|-|-|-|-|-|-|-|-|-|  \n`,
+|-----------------|-----------------------|----------------------|----------------|------------|------------|------------------------------|----------------|------------------|-----------------|---------------------------------|-----------------|  \n`,
 
     tableFooter: (date, mergedPullRequests, closedPullRequests) => {
         return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${mergedPullRequests} MERGED AND ${closedPullRequests} CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
@@ -669,7 +677,7 @@ module.exports = {
             }
         },
         burnRateHeaderMd: `<div align="center">  \n \n | Date | # of <br /> :moneybag: <br /> PRs | Total :moneybag: | # of <br /> :construction_worker: | :moneybag: / PR |
-|:-:|:-:|:-:|:-:|:-:| \n`,
+|:-----------------:|:-----------------------:|:----------------------:|:----------------:|:------------:| \n`,
         burnRateFooterMd: (totalPaidPullRequests, totalPeopleInvolved) => {
             return `\n \n **BURN RATE TABLE GENERATED BASED ON ${totalPaidPullRequests} PAID PULL REQUESTS AND CONTRIBUTIONS OF ${totalPeopleInvolved} PEOPLE** \n \n </div>`
         },
