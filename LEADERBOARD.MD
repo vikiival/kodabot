@@ -4,7 +4,7 @@
 | kkukelka | $8045.21/38.171KSM | $114.93 | 74 | 70 | 4 | 7039/3176 | 268 | 350 | 4.73 | 72/74 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x25125be46146ca56f588a48abb2a85687ae1716ad32528c5aff561abb0cfb7a0) |
 | Jarsen136 | $4902.67/30.821KSM | $106.58 | 49 | 46 | 3 | 1928/1607 | 151 | 361 | 7.37 | 45/49 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x41b80fbefceac97b316fb73f2637dc14cf7c5b3e30ddc81fc2e9fa657cc21391) |
 | preschian | $2103.65/12.566KSM | $123.74 | 18 | 17 | 1 | 17794/18581 | 162 | 138 | 7.67 | 17/18 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x3cc0ff8f370dacc6aab97493ee130dfd26436a9daa4363241e340456bfc74bce) |
-| petersopko | $1550.61/9.597KSM | $62.02 | 28 | 25 | 3 | 3223/2334 | 73 | 110 | 3.93 | 21/28 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x050d8140cca5bcd5b280e602323975a4a6de7e294bf95d50e1921bad3da49174) |
+| petersopko | $1550.61/9.597KSM | $59.64 | 29 | 26 | 3 | 3224/2335 | 74 | 110 | 3.79 | 21/29 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x050d8140cca5bcd5b280e602323975a4a6de7e294bf95d50e1921bad3da49174) |
 | chandradot99 | $1204.47/5.955KSM | $133.83 | 9 | 9 | 0 | 900/146 | 43 | 75 | 8.33 | 8/9 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x1c9ffac9f4eb4caf128eb246b33ddd6b81ac909aff8ece44e2b383c60f4dbe88) |
 | pandasamanvaya | $1098.42/4.32KSM | $64.61 | 18 | 17 | 1 | 1560/455 | 66 | 35 | 1.94 | 7/18 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0xdd36aa19ffffc1a401e9d1e5cda74433d91e922571e581d6c09a3c2ec126ab6e) |
 | rhaicode | $954.79/3.06KSM | $238.7 | 7 | 4 | 3 | 1014/680 | 27 | 70 | 10 | 7/7 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x5945e757597ec9c581749d5bad66c52ba3b3148fef35ca60a3801e1f98c3f093) |
@@ -30,4 +30,4 @@
 | kodaDev0485 | $50.11/0.272KSM | $6.26 | 8 | 8 | 0 | 116/47 | 21 | 1 | 0.13 | 0/8 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x8220eacad05f9d04b1f1b3d3daf1e752d021ec93dc5e1a85f580eca64401a8db) |
 
  
- **LEADERBOARD TABLE GENERATED AT Apr 14th 2022 FROM 222 MERGED AND 76 CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
+ **LEADERBOARD TABLE GENERATED AT Apr 14th 2022 FROM 223 MERGED AND 76 CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
