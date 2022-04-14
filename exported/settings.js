@@ -10,12 +10,12 @@ module.exports = {
     burnRatePath: `kodabot-update:BURN_RATE.MD`, // name of the bot branch
     burnRateFile: 'BURN_RATE.MD', // name of the burn rate file
     ignoredUsers: ['yangwao', 'roiLeo', 'vikiiVal'], // users which are not added to the leaderboard
-    linkToLeaderboard: `https://api.github.com/repos/petersopko/kodabot-test/branches/kodabot-update`, // link to LEADERBOARD.md branch, where bot pushes updates
+    linkToLeaderboard: `https://api.github.com/repos/petersopko/kodabot/branches/kodabot-update`, // link to LEADERBOARD.md branch, where bot pushes updates
 
     // for testing, change these
     optionHours: 12, // number of hours for option period after queue
     devAssignmentLimit: 5, // number of issues dev can get assigned at once
-    mergedAndPaidLimit: 3, // number of merged and paid PRs before update of LEADERBOARD.MD
+    mergedAndPaidLimit: 1, // number of merged and paid PRs before update of LEADERBOARD.MD
     finishedStreakLimit: 3, // number of assigned->merged->paid PRs which count as finishStreak (quadratic payments)
     timeSpan: 'seconds', // timespan used to calculate assignment and option period - needs to be hours in development
 
