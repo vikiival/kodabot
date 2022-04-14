@@ -14,7 +14,7 @@ if (shared.checks.payoutPhrases(commentBody)) {
         let pullRequest = await shared.getDataCf(process.env.CLDFLR_PULLS, prNumber);
         if (!shared.checks.emptyPull(pullRequest)) {
             if (shared.checks.addedToLeaderboard(pullRequest)) {
-                await payout.fixLeaderboard(await payout.getDataCf(process.env.CLDFLR_TABLE, 'leaderboard'), pullRequest)
+                await payout.fixLeaderboard(await payout.getDataCf(process.env.CLDFLR_TABLES, 'leaderboard'), pullRequest)
             } else {
                 await shared.storeDataCf(process.env.CLDFLR_PULLS, pullRequest.prNumber, newPullRequest)
             }
