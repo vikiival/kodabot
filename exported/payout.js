@@ -1,47 +1,30 @@
-    const lib = require('lib')({
-        token: process.env.STDLIB_SECRET_TOKEN,
-    });
-    const moment = require('moment');
-    const {Octokit} = require('@octokit/rest');
-    const octokit = new Octokit({
-        auth: process.env.GITHUB_PERSONAL_KEY,
-    });
-    const {graphql} = require('@octokit/graphql');
-    const settings = require('./settings');
-    const shared = require('./shared');
-    const btoa = require('btoa');
+const lib = require('lib')({
+    token: process.env.STDLIB_SECRET_TOKEN,
+});
+const moment = require('moment');
+const {Octokit} = require('@octokit/rest');
+const octokit = new Octokit({
+    auth: process.env.GITHUB_PERSONAL_KEY,
+});
+const {graphql} = require('@octokit/graphql');
+const settings = require('./settings');
+const shared = require('./shared');
+const btoa = require('btoa');
 
-    module.exports = {
+module.exports = {
 
-        /**
-         * @returns pull request object based on data from GitHub
-         * */
-        getPullRequest: async (prNumber) => {
-            let queryResult = await graphql(shared.queries.getPullRequest,
-                {
-                    repo: process.env.GITHUB_REPO,
-                    owner: process.env.GITHUB_OWNER,
-                    prNumber: prNumber,
-                    headers: {
-                        authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
-                    },
-                }
-            );
-            queryResult = queryResult.repository.pullRequest
-            return {
-                prLeaderboard: false,
-                prNumber: queryResult.number,
-                prAuthor: queryResult.author.login,
-                prState: queryResult.state,
-                githubLink: queryResult.url,
-                transactions: await module.exports.getTransactions(queryResult.comments.nodes),
-                prMergedDate: queryResult.mergedAt,
-                commits: queryResult.commits.totalCount,
-                linesAdded: queryResult.additions,
-                linesRemoved: queryResult.deletions,
-                commentsCount: queryResult.comments.totalCount,
-                linkedIssues: queryResult.closingIssuesReferences.nodes.map((x) => x.number),
-
+    /**
+     * @returns pull request object based on data from GitHub
+     * */
+    getPullRequest: async (prNumber) => {
+        let queryResult = await graphql(shared.queries.getPullRequest,
+            {
+                repo: process.env.GITHUB_REPO,
+                owner: process.env.GITHUB_OWNER,
+                prNumber: prNumber,
+                headers: {
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                },
             }
         );
         queryResult = queryResult.repository.pullRequest
@@ -187,7 +170,6 @@
         });
     },
 
-
     /**
      * @returns SHA key for LEADERBOARD.MD file on GH
      * @desc URL needs to be adjusted in settings
@@ -281,34 +263,56 @@
         await shared.storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', leaderboard);
     },
 
-        /**
-         * @returns number of pull request for selected query (MERGED/CLOSED/OPEN)
-         * @param query - graphql query to get total count of desired PR state
-         */
-        getNumberOfPullRequests: async (query) => {
-            const queryResult = await graphql(query,
-                {   name: process.env.GITHUB_REPO,
-                    owner: process.env.GITHUB_OWNER,
-                    headers: {
-                        authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
-                    },
-                }
-            );
-            return queryResult.repository.pullRequests.totalCount;
-        },
-
-        /**
-         * @returns MD version of leaderboard
-         * */
-        makeLeaderboardMd: async (leaderboard) => {
-            let closedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.closedPullRequestsCount);
-            let mergedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount);
-            let mdTable = module.exports.tableHeader;
-            for (let i = 0; i < leaderboard.length; i++) {
-                const oneRecord = leaderboard[i];
-                if (oneRecord.totalAmountReceivedUSD <= 0) {
-                    continue;
+    /**
+     * @desc Generates new entry into leaderboard stored on CF KV storage
+     * */
+    makeLeaderboardRecord: async (storedPull) => {
+        let prMerged = storedPull.prState === 'MERGED';
+        let dollarValue = 0;
+        let kusamaValue = 0;
+        let linkToLastSubscan = null;
+        for (let i = 0; i < storedPull.transactions.length; i++) {
+            const oneTransaction = storedPull.transactions[i];
+            if (oneTransaction.transactionResult === true) {
+                dollarValue += oneTransaction.paidUsd;
+                kusamaValue += oneTransaction.paidKsm;
+                linkToLastSubscan = oneTransaction.subscanLink;
             }
+        }
+        return {
+            devLogin: storedPull.prAuthor,
+            totalAmountReceivedUSD: module.exports.roundTwoDecimals(dollarValue),
+            totalAmountReceivedKSM: module.exports.roundThreeDecimals(kusamaValue),
+            numberOfOpenPrs: 1,
+            mergedPrs: prMerged ? 1 : 0,
+            closedPrs: prMerged ? 0 : 1,
+            linesAdded: prMerged ? storedPull.linesAdded : 0,
+            linesRemoved: prMerged ? storedPull.linesRemoved : 0,
+            numOfTotalCommitsMerged: prMerged ? storedPull.commits : 0,
+            linkToLastSubscan,
+            lastMergedPrDate: prMerged ? storedPull.prMergedDate : null,
+            commentsCount: storedPull.commentsCount,
+            numOfLinkedIssues: storedPull.linkedIssues.length,
+        };
+    },
+
+    /**
+     * @desc Updates one leaderboard record stored
+     * */
+    updateLeaderboardRecord: async (storedPull, leaderboardRecord) => {
+        let prMerged = storedPull.prState === 'MERGED';
+        prMerged
+            ? (leaderboardRecord.mergedPrs += 1)
+            : (leaderboardRecord.closedPrs += 1);
+        leaderboardRecord.numberOfOpenPrs += 1;
+        leaderboardRecord.commentsCount += storedPull.commentsCount;
+        leaderboardRecord.numOfLinkedIssues += storedPull.linkedIssues.length;
+        for (let i = 0; i < storedPull.transactions.length; i++) {
+            const oneTransaction = storedPull.transactions[i];
+            if (oneTransaction.transactionResult === true) {
+                if (shared.checks.newMergeDate(leaderboardRecord, storedPull)) {
+                    leaderboardRecord.linkToLastSubscan = oneTransaction.subscanLink;
+                }
                 leaderboardRecord.totalAmountReceivedUSD += oneTransaction.paidUsd;
                 leaderboardRecord.totalAmountReceivedKSM += oneTransaction.paidKsm;
             }
@@ -365,25 +369,43 @@
     },
 
     /**
+     * @returns number of pull request for selected query (MERGED/CLOSED/OPEN)
+     * @param query - graphql query to get total count of desired PR state
+     */
+    getNumberOfPullRequests: async (query) => {
+        const queryResult = await graphql(query,
+            {
+                name: process.env.GITHUB_REPO,
+                owner: process.env.GITHUB_OWNER,
+                headers: {
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                },
+            }
+        );
+        return queryResult.repository.pullRequests.totalCount;
+    },
+
+    /**
      * @returns MD version of leaderboard
      * */
     makeLeaderboardMd: async (leaderboard) => {
-        let numOfPRs = (await shared.getAllKeys(process.env.CLDFLR_PULLS)).length;
+        let closedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.closedPullRequestsCount);
+        let mergedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount);
         let mdTable = module.exports.tableHeader;
         for (let i = 0; i < leaderboard.length; i++) {
             const oneRecord = leaderboard[i];
             if (oneRecord.totalAmountReceivedUSD <= 0) {
                 continue;
             }
-            mdTable += module.exports.tableFooter(
-                moment().format('MMM Do YYYY'),
-                mergedPullRequests,
-                closedPullRequests
+            mdTable += module.exports.makeLeaderboardRecordMd(
+                oneRecord.devLogin,
+                oneRecord
             );
         }
         mdTable += module.exports.tableFooter(
             moment().format('MMM Do YYYY'),
-            numOfPRs
+            mergedPullRequests,
+            closedPullRequests
         );
         return mdTable;
     },
@@ -415,10 +437,9 @@
     tableHeader: `| devName | total amount received |  amount per merged PR | total open PRs | merged PRs | closed PRs | lines added to lines removed| commits merged | total # comments | comments per PR | resolved issues to # of open PR | last transaction  |
     |-|-|-|-|-|-|-|-|-|-|-|-|  \n`,
 
-        tableFooter: (date, mergedPullRequests, closedPullRequests) => {
-            return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${mergedPullRequests} MERGED AND ${closedPullRequests} CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
-        },
-
+    tableFooter: (date, mergedPullRequests, closedPullRequests) => {
+        return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${mergedPullRequests} MERGED AND ${closedPullRequests} CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
+    },
 
     /**
      @desc Record streak of finished issues within 7 days time. Streak is recorded in devObject on Cloudflare KV storage.
@@ -578,20 +599,20 @@
         createRecord: (pullRequest, period) => {
             let burnObject = {}
             if (period === 'week') {
-                burnObject['week'] = moment(pullRequest.prMergedDate).format('w')
+                burnObject.week = parseInt(moment(pullRequest.prMergedDate).format('w'))
             }
             if (period === 'month') {
-                burnObject['month'] = moment(pullRequest.prMergedDate).format('M')
+                burnObject.month = parseInt(moment(pullRequest.prMergedDate).format('M'))
             }
             let burnDate = pullRequest.prMergedDate.toString()
             let amount = module.exports.getAmountUsdFromPullObject(pullRequest)
-            burnObject['date'] = burnDate
-            burnObject['numberOfPaidPullRequests'] = 1
-            burnObject['amountPaid'] = amount
-            burnObject['numberOfPaidIssues'] = pullRequest.linkedIssues.length
-            burnObject['numberOfPeopleInvolved'] = 1
-            burnObject['avgPaidPr'] = amount
-            burnObject['peopleInvolved'] = [pullRequest.prAuthor]
+            burnObject.date = burnDate
+            burnObject.numberOfPaidPullRequests = 1
+            burnObject.amountPaid = amount
+            burnObject.numberOfPaidIssues = pullRequest.linkedIssues.length
+            burnObject.numberOfPeopleInvolved = 1
+            burnObject.avgPaidPr = amount
+            burnObject.peopleInvolved = [pullRequest.prAuthor]
             return burnObject
         },
         updateRecord: (burnRecord, pullRequest) => {
@@ -610,26 +631,21 @@
             let weekAlreadyIn = false
             let monthAlreadyIn = false
             for (let i = 0; i < burnRate.length; i++) {
-                if (burnRate[i].week === parseInt(moment(pullRequest.prMergedDate).format('w'))) {
+                if (parseInt(burnRate[i].week) === parseInt(moment(pullRequest.prMergedDate).format('W'))) {
                     weekAlreadyIn = true
-                    console.log(burnRate[i], 'BEFORE UPDATE')
                     burnRate[i] = module.exports.burnRate.updateRecord(burnRate[i], pullRequest)
-                    console.log(burnRate[i], 'AFTER UPDATE')
                 }
-                if (burnRate[i].month === parseInt(moment(pullRequest.prMergedDate).format('m'))) {
+
+                if (parseInt(burnRate[i].month) === parseInt(moment(pullRequest.prMergedDate).format('M'))) {
                     monthAlreadyIn = true
-                    console.log(burnRate[i], 'BEFORE UPDATE')
-                    burnRate[i] = updateRecord(burnRate[i], pullRequest)
-                    console.log(burnRate[i], 'AFTER UPDATE')
+                    burnRate[i] = module.exports.burnRate.updateRecord(burnRate[i], pullRequest)
                 }
             }
             if (!weekAlreadyIn) {
-                burnRate.push(createRecord(pullRequest))
-                console.log('ADDING OBJECT, !monthAlreadyIn', module.exports.burnRate.createRecord(pullRequest, 'week'))
+                burnRate.push(module.exports.burnRate.createRecord(pullRequest, 'week'))
             }
             if (!monthAlreadyIn) {
-                burnRate.push(createRecord(pullRequest))
-                console.log('ADDING OBJECT, !monthAlreadyIn', module.exports.burnRate.createRecord(pullRequest, 'month'))
+                burnRate.push(module.exports.burnRate.createRecord(pullRequest, 'month'))
             }
             burnRate.sort(
                 (a, b) => moment(b.date) - moment(a.date)
@@ -649,7 +665,7 @@
             if (record.month !== undefined) {
                 return `| :date: ***${`${moment(record.date).format('MMMM')} ${moment(record.date).year()}`}*** | ***${record.numberOfPaidPullRequests}*** | ***$${Math.round(record.amountPaid)}*** | ***${record.numberOfPeopleInvolved}*** | ***$${Math.round(record.avgPaidPr)}*** |\n `
             } else {
-                return `| Week ${record.week} ${moment(record.date).format('YYYY')} | ${record.numberOfPaidPullRequests} | $${Math.round(record.amountPaid)} | ${record.numberOfPeopleInvolved} | $${Math.round(record.avgPaidPr)} |\n`
+                return `| Week ${record.week}/${moment(record.date).format('YY')} | ${record.numberOfPaidPullRequests} | $${Math.round(record.amountPaid)} | ${record.numberOfPeopleInvolved} | $${Math.round(record.avgPaidPr)} |\n`
             }
         },
         burnRateHeaderMd: `<div align="center">  \n \n | Date | # of <br /> :moneybag: <br /> PRs | Total :moneybag: | # of <br /> :construction_worker: | :moneybag: / PR |
@@ -678,134 +694,6 @@
                 }
             }
             return totalPeopleInvolvedCount
-        }
-
-
-        //
-        //         createMonthRecord: (record) => {
-        //             let date = moment(record.date).endOf('month');
-        //             return {
-        //                 date: date,
-        //                 month: record.month,
-        //                 numberOfPaidPullRequests: record.numberOfPaidPullRequests,
-        //                 amountPaid: module.exports.roundTwoDecimals(record.amountPaid),
-        //                 numberOfPaidIssues: record.numberOfPaidIssues,
-        //                 numberOfPeopleInvolved: record.numberOfPeopleInvolved,
-        //                 avgPaidPr: record.avgPaidPr,
-        //                 peopleInvolved: record.peopleInvolved,
-        //             }
-        //         },
-        //         updateMonthRecord: (month, record) => {
-        //             month.numberOfPaidPullRequests += record.numberOfPaidPullRequests
-        //             month.amountPaid += record.amountPaid
-        //             month.numberOfPaidIssues += record.numberOfPaidIssues
-        //             month.numberOfPeopleInvolved += record.numberOfPeopleInvolved
-        //             month.avgPaidPr = month.amountPaid / month.numberOfPaidPullRequests
-        //             if (record.peopleInvolved.length === 1) {
-        //                 if (!month.peopleInvolved.includes(record.peopleInvolved[0])) {
-        //                     month.peopleInvolved.push(record.peopleInvolved[0])
-        //                 }
-        //             }
-        //             for (let i = 0; i < record.peopleInvolved.length; i++) {
-        //                 if (month.peopleInvolved.includes(record.peopleInvolved[i])) {
-        //                     continue
-        //                 } else {
-        //                     month.peopleInvolved.push(record.peopleInvolved[i])
-        //                 }
-        //             }
-        //             month.numberOfPeopleInvolved = month.peopleInvolved.length
-        //             month.amountPaid = module.exports.roundTwoDecimals(month.amountPaid)
-        //             month.avgPaidPr = module.exports.roundTwoDecimals(month.avgPaidPr)
-        //             return month
-        //         },
-        //         burnRateMonth: (months, record) => {
-        //             let alreadyInArray = false
-        //             if (months.length === 0) {
-        //                 months.push(module.exports.burnRate.createMonthRecord(record))
-        //             }
-        //             for (let i = 0; i < months.length; i++) {
-        //                 if (record.month === months[i].month) {
-        //                     let newMonthRecord = module.exports.burnRate.updateMonthRecord(months[i], record)
-        //                     alreadyInArray = true
-        //                     months.splice(i, 1)
-        //                     months.push(newMonthRecord)
-        //                 }
-        //             }
-        //             if (!alreadyInArray) {
-        //                 months.push(module.exports.burnRate.createMonthRecord(record))
-        //             }
-        //             return months
-        //         },
-        //         burnRateWeek: (weeks, record) => {
-        //             let alreadyInArray = false
-        //             if (weeks.length === 0) {
-        //                 weeks.push(module.exports.burnRate.createWeekRecord(record))
-        //             }
-        //             for (let i = 0; i < weeks.length; i++) {
-        //                 if (record.week === weeks[i].week) {
-        //                     let newWeekRecord = module.exports.burnRate.updateWeekRecord(weeks[i], record)
-        //                     alreadyInArray = true
-        //                     weeks.splice(i, 1)
-        //                     weeks.push(newWeekRecord)
-        //                 }
-        //             }
-        //             if (!alreadyInArray) {
-        //                 weeks.push(module.exports.burnRate.createWeekRecord(record))
-        //             }
-        //             return weeks
-        //         },
-        //         createWeekRecord: (record) => {
-        //             let date = moment(record.date).endOf('week');
-        //             return {
-        //                 date: date,
-        //                 week: record.week,
-        //                 numberOfPaidPullRequests: record.numberOfPaidPullRequests,
-        //                 amountPaid: payout.roundTwoDecimals(record.amountPaid),
-        //                 numberOfPaidIssues: record.numberOfPaidIssues,
-        //                 numberOfPeopleInvolved: record.numberOfPeopleInvolved,
-        //                 avgPaidPr: record.avgPaidPr,
-        //                 peopleInvolved: record.peopleInvolved,
-        //             }
-        //         },
-        //         updateWeekRecord: (week, record) => {
-        //             if (moment(week.date) < moment(record.date)) {
-        //                 week.date = record.date
-        //             }
-        //             week.numberOfPaidPullRequests += record.numberOfPaidPullRequests
-        //             week.amountPaid += record.amountPaid
-        //             week.numberOfPaidIssues += record.numberOfPaidIssues
-        //             week.numberOfPeopleInvolved += record.numberOfPeopleInvolved
-        //             week.avgPaidPr = week.amountPaid / week.numberOfPaidPullRequests
-        //             if (record.peopleInvolved.length === 1) {
-        //                 if (!week.peopleInvolved.includes(record.peopleInvolved[0])) {
-        //                     week.peopleInvolved.push(record.peopleInvolved[0])
-        //                 }
-        //             }
-        //             for (let i = 0; i < record.peopleInvolved.length; i++) {
-        //                 if (week.peopleInvolved.includes(record.peopleInvolved[i])) {
-        //                     continue
-        //                 } else {
-        //                     week.peopleInvolved.push(record.peopleInvolved[i])
-        //                 }
-        //             }
-        //             week.numberOfPeopleInvolved = week.peopleInvolved.length
-        //             week.amountPaid = payout.roundTwoDecimals(week.amountPaid)
-        //             week.avgPaidPr = payout.roundTwoDecimals(week.avgPaidPr)
-        //             return week
-        //         },
-        //         createBurnRate: (result) => {
-        //             let burnRate = []
-        //             let weeks = []
-        //             let months = []
-        //             for (let i = 0; i < result.data.length; i++) {
-        //                 months = module.exports.burnRate.burnRateMonth(months, result.data[i])
-        //                 weeks = module.exports.burnRate.burnRateWeek(weeks, result.data[i])
-        //             }
-        //             burnRate = months.concat(weeks)
-        //             burnRate.sort(
-        //                 (a, b) => moment(b.date) - moment(a.date)
-        //             );
-        //             return burnRate
-        //         },
-    }
+        },
+    },
 };
