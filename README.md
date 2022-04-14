@@ -1,5 +1,5 @@
 # KodaBot
-[<img src="https://open.autocode.com/static/images/open.svg?" width="192">](https://autocode.com/app/petersopko/kodabot-v1/)
+<!-- [<img src="https://open.autocode.com/static/images/open.svg?" width="192">](https://autocode.com/app/petersopko/kodabot-v1/) -->
 
 1. Make sure to adjust environment variables
 2. GitHub Personal Key needs to be generated for bot and GitHub account linked on Autocode
