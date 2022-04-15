@@ -12,7 +12,6 @@ const issueNumber = context.params.event.issue.number;
 
 let storedIssue = await shared.getDataAc(issueNumber);
 let devObject = await shared.getDevObject(commentCreator);
-console.log('storedIssue beginning', storedIssue)
 if (shared.checks.passPhrases(commentBody)) {
     if (shared.checks.queueForDev(commentCreator, storedIssue)) {
         await shared.createComment(
@@ -24,7 +23,6 @@ if (shared.checks.passPhrases(commentBody)) {
             issueNumber,
             storedIssue
         );
-        console.log('storedIssue after queueDropout', storedIssue);
     }
     if (shared.checks.optionAvailability(storedIssue, commentCreator)) {
         await shared.createComment(
@@ -111,7 +109,6 @@ if (shared.checks.passPhrases(commentBody)) {
                 return;
             }
         } else if (!shared.checks.assignmentExpired(storedIssue)) {
-            console.log('assignment not expired', storedIssue);
             if (!shared.checks.queueForDev(commentCreator, storedIssue)) {
                 storedIssue.queue.push(commentCreator);
                 await shared.storeDataAc(issueNumber, storedIssue);
@@ -156,4 +153,3 @@ if (shared.checks.passPhrases(commentBody)) {
         );
     }
 }
-console.log('storedIssue end', storedIssue)

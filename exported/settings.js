@@ -6,11 +6,11 @@ module.exports = {
     burnRateTitle: `burnRateUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
     tablesTitle: `tablesUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
     branchName: 'kodabot-update', // name of the branch to be created by bot
-    leaderboardPath: `kodabot-update:LEADERBOARD.MD`, // name of the bot branch
-    leaderboardFile: 'LEADERBOARD.MD', // name of the leaderboard file
-    burnRatePath: `kodabot-update:BURN_RATE.MD`, // name of the bot branch
-    burnRateFile: 'BURN_RATE.MD', // name of the burn rate file
-    ignoredUsers: ['yangwao', 'roiLeo', 'vikiiVal', 'kodadev0485'], // users which are not added to the leaderboard
+    leaderboardPath: `kodabot-update:LEADERBOARD.md`, // name of the bot branch
+    leaderboardFile: 'LEADERBOARD.md', // name of the leaderboard file
+    burnRatePath: `kodabot-update:BURN_RATE.md`, // name of the bot branch
+    burnRateFile: 'BURN_RATE.md', // name of the burn rate file
+    ignoredUsers: ['yangwao', 'roiLeo', 'vikiival', 'kodadev0485'], // users which are not added to the leaderboard
     linkToLeaderboard: `https://api.github.com/repos/petersopko/kodabot/branches/kodabot-update`, // link to LEADERBOARD.md branch, where bot pushes updates
 
     // for testing, change these
@@ -44,14 +44,28 @@ module.exports = {
         'i take this.',
         'ill take this',
         'ill take this.',
+        'Ill take this',
+        'iLL take this',
+        'ILL TAKE THIS',
+        'I WILL TAKE THIS'
     ], // phrases used to trigger bot to take an issue
     passPhrases: [
         'pass',
-        'i wont take this',
-        'i dont want this',
+        'pass.',
         'passing',
-        'next in queue',
-        'next',
+        'passing.',
+        'i pass',
+        'i pass.',
+        'i passing',
+        'i passing.',
+        'i will pass',
+        'i will pass.',
+        'i will passing',
+        'i will passing.',
+        'ill pass',
+        'ill pass.',
+        'ill be passing',
+        'ill be passing.',
     ], // phrases that trigger passing of option or dropping out of queue
 
     comments: {
