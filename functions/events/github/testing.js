@@ -6,17 +6,29 @@ const payout = require('../../../exported/payout');
 const {storeDataCf, getDataCf} = require("../../../exported/shared");
 
 // let result = await lib.utils.kv['@0.1.16'].entries();
-let result = await lib.http.request['@1.1.6'].get({
+let jsonBinBurnRate = await lib.http.request['@1.1.6'].get({
     url: `https://api.jsonbin.io/b/62559fd87b69e806cf4c737c/7`,
     headers: {
         'X-MASTER-KEY': `${process.env.JSONBIN_MASTER_KEY}`,
     },
 });
-await storeDataCf(process.env.CLDFLR_TABLES, 'burnRate', result.data);
+let jsonBinLeaderboard = await lib.http.request['@1.1.6'].get({
+    url: `https://api.jsonbin.io/b/62559fd87b69e806cf4c737c/7`,
+    headers: {
+        'X-MASTER-KEY': `${process.env.JSONBIN_MASTER_KEY}`,
+    },
+});
+await storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', jsonBinLeaderboard.data);
+await storeDataCf(process.env.CLDFLR_TABLES, 'burnRate', jsonBinBurnRate.data);
 let burnRate = await getDataCf(process.env.CLDFLR_TABLES, 'burnRate');
-console.log(payout.burnRate.makeBurnRateMdTable(burnRate))
-let burnRateMD = await payout.burnRate.makeBurnRateMdTable(burnRate, 'burnRate')
-await payout.pushTable(burnRateMD, settings.burnRatePath, settings.burnRateFile, settings.burnRateTitle);
+let leaderboard = await getDataCf(process.env.CLDFLR_TABLES, 'leaderboard');
+
+let burnRateMD = await payout.burnRate.makeBurnRateMdTable(burnRate)
+let leaderboardMD = await payout.makeLeaderboardMd(leaderboard)
+console.log(burnRateMD, leaderboardMD)
+await payout.burnRate.updateTables(leaderboard, burnRate);
+
+
 // let totalAmountUnfiltered = 0
 // let totalAmount = 0;
 // for (let i = 0; i < burnRate.length; i++) {
