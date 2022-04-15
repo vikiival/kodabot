@@ -41,9 +41,7 @@ if (shared.checks.storedIssueExists(storedIssue)) {
         }
     }
     if (shared.checks.queuedDevs(storedIssue)) {
-        console.log('storedIssue1', storedIssue);
         if (shared.checks.nextInQueueOptionHolder(storedIssue)) {
-            console.log('next in queue was option holder', storedIssue)
             await shared.createComment(
                 issueNumber,
                 settings.comments.optionPeriodSkipped(storedIssue.optionHolder, storedIssue.optionPeriod))
@@ -60,7 +58,6 @@ if (shared.checks.storedIssueExists(storedIssue)) {
             )
         } else {
             storedIssue = await assign.toggleOptionPeriod(storedIssue, issueNumber)
-            console.log('toggledOptionPeriod', storedIssue)
             await shared.createComment(
                 issueNumber,
                 settings.comments.optionPeriodStarted(storedIssue.optionHolder, storedIssue.optionPeriod)
