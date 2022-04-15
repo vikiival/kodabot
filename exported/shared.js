@@ -518,8 +518,8 @@ module.exports = {
                   }
                 }
                 `,
-        getLeaderboardKey: `
-                query getLeaderboardKey($owner: String!, $repo: String!, $gitPath: String!) {
+        getTableKey: `
+                query getTableKey($owner: String!, $repo: String!, $gitPath: String!) {
                   repository(owner: $owner, name: $repo) {
                     object(expression: $gitPath) {
                       ... on Blob {

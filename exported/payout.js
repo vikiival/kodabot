@@ -103,7 +103,7 @@ module.exports = {
             let conversionRate = (await module.exports.getSubscanPrice(blockTimestamp)).data.data.price
             if (subscanResult) {
                 transactions.push({
-                    transactionResult: subscanResult.data.data.success,
+                    transactionSuccess: subscanResult.data.data.success,
                     paidUsd: subscanResult.data.data.success ? module.exports.roundTwoDecimals(ksmAmount * conversionRate) : 0,
                     paidKsm: subscanResult.data.data.success ? module.exports.roundThreeDecimals(ksmAmount) : 0,
                     subscanLink: `https://kusama.subscan.io/extrinsic/${hashArray[i]}`,
@@ -121,7 +121,7 @@ module.exports = {
     getAmountUsdFromPullObject: (pullObject) => {
         let amountUsd = 0;
         for (let i = 0; i < pullObject.transactions.length; i++) {
-            if (pullObject.transactions[i].transactionResult === true) {
+            if (pullObject.transactions[i].transactionSuccess === true) {
                 amountUsd += pullObject.transactions[i].paidUsd;
             }
         }
@@ -135,13 +135,28 @@ module.exports = {
     getAmountKsmFromPullObject: (pullObject) => {
         let amountKsm = 0;
         for (let i = 0; i < pullObject.transactions.length; i++) {
-            if (pullObject.transactions[i].transactionResult === true) {
+            if (pullObject.transactions[i].transactionSuccess === true) {
                 amountKsm += pullObject.transactions[i].paidKsm;
             }
         }
         return amountKsm;
     },
 
+    roundTwoDecimals: (number) => {
+        return Math.round((number + Number.EPSILON) * 100) / 100
+    },
+
+    roundThreeDecimals: (number) => {
+        return Math.round((number + Number.EPSILON) * 1000) / 1000
+    },
+
+    getLinkedIssue: (pullRequest) => {
+        if (pullRequest.linkedIssues.length === 0) {
+            return 0
+        } else {
+            return pullRequest.linkedIssues[0]
+        }
+    },
 
     updateTables: async (leaderboard, burnRate) => {
         await module.exports.pushTable(leaderboard, settings.leaderboardPath, settings.leaderboardFile, settings.leaderboardTitle)
@@ -152,6 +167,7 @@ module.exports = {
             lastCommitSha.data.commit.sha
         );
     },
+
     /**
      * @desc merges main into bot branch
      * */
@@ -181,11 +197,11 @@ module.exports = {
     },
 
     /**
-     * @returns SHA key for LEADERBOARD.MD file on GH
+     * @returns SHA key for table.md file on GH
      * @desc URL needs to be adjusted in settings
      */
     getShaKey: async (gitPath) => {
-        const queryResult = await graphql(shared.queries.getLeaderboardKey,
+        const queryResult = await graphql(shared.queries.getTableKey,
             {
                 repo: process.env.GITHUB_REPO,
                 owner: process.env.GITHUB_OWNER,
@@ -195,11 +211,13 @@ module.exports = {
                 },
             }
         );
+        console.log(queryResult);
         return queryResult.repository.object.oid;
     },
 
     /**
-     *@desc Pushes updated LEADERBOARD.MD to branch, creates pull request to main and updates PR from main
+     * @desc Pushes updated table to branch
+     * @returns information about commit, including SHA
      */
     pushTable: async (mdTable, gitPath, fileName, title) => {
         const sha = await module.exports.getShaKey(gitPath);
@@ -217,281 +235,233 @@ module.exports = {
         );
     },
 
+    leaderboard: {
 
-    /**
-     * @desc replaces old leaderboard record with updated one
-     * @returns updated sorted leaderboard
-     * */
-    replaceLeaderboardRecord: async (
-        leaderboard,
-        storedPull,
-        leaderboardRecord
-    ) => {
-        for (let i = 0; i < leaderboard.length; i++) {
-            if (leaderboard[i].devLogin === storedPull.prAuthor) {
-                leaderboard.splice(i, 1);
-            }
-        }
-        let newLeaderboardRecord = await module.exports.updateLeaderboardRecord(
+        /**
+         * @desc replaces old leaderboard record with updated one
+         * @returns updated sorted leaderboard
+         * */
+        replaceLeaderboardRecord: async (
+            leaderboard,
             storedPull,
             leaderboardRecord
-        );
-        leaderboard.push(newLeaderboardRecord);
-        leaderboard.sort(
-            (a, b) => b.totalAmountReceivedUSD - a.totalAmountReceivedUSD
-        );
-        await shared.storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', leaderboard);
-        return leaderboard
-    },
-
-    /**
-     * @desc Updates leaderboard object stored in CF KV storage
-     * @returns leaderboard sorted by total amount earned in USD
-     * */
-    updateLeaderboard: async (pullRequest, leaderboard) => {
-        pullRequest.prLeaderboard = true;
-        let leaderboardRecord = leaderboard.find(
-            (obj) => obj.devLogin === pullRequest.prAuthor
-        );
-        if (shared.checks.missingFromLeaderboard(leaderboardRecord)) {
-            leaderboard.push(
-                await module.exports.makeLeaderboardRecord(pullRequest)
-            );
-        } else {
-            leaderboard = await module.exports.replaceLeaderboardRecord(
-                leaderboard,
-                pullRequest,
+        ) => {
+            for (let i = 0; i < leaderboard.length; i++) {
+                if (leaderboard[i].devLogin === storedPull.prAuthor) {
+                    leaderboard.splice(i, 1);
+                }
+            }
+            let newLeaderboardRecord = await module.exports.leaderboard.updateLeaderboardRecord(
+                storedPull,
                 leaderboardRecord
             );
-        }
-        await shared.storeDataCf(process.env.CLDFLR_PULLS, pullRequest.prNumber, pullRequest);
-        await shared.storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', leaderboard);
-    },
+            leaderboard.push(newLeaderboardRecord);
+            leaderboard.sort(
+                (a, b) => b.totalAmountReceivedUSD - a.totalAmountReceivedUSD
+            );
+            await shared.storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', leaderboard);
+            return leaderboard
+        },
 
-    /**
-     * @desc Generates new entry into leaderboard stored on CF KV storage
-     * */
-    makeLeaderboardRecord: async (storedPull) => {
-        let prMerged = storedPull.prState === 'MERGED';
-        let dollarValue = 0;
-        let kusamaValue = 0;
-        let linkToLastSubscan = null;
-        for (let i = 0; i < storedPull.transactions.length; i++) {
-            const oneTransaction = storedPull.transactions[i];
-            if (oneTransaction.transactionResult === true) {
-                dollarValue += oneTransaction.paidUsd;
-                kusamaValue += oneTransaction.paidKsm;
-                linkToLastSubscan = oneTransaction.subscanLink;
+        /**
+         * @desc Updates leaderboard object stored in CF KV storage
+         * @returns leaderboard sorted by total amount earned in USD
+         * */
+        updateLeaderboard: async (pullRequest, leaderboard) => {
+            pullRequest.prLeaderboard = true;
+            let leaderboardRecord = leaderboard.find(
+                (obj) => obj.devLogin === pullRequest.prAuthor
+            );
+            if (shared.checks.missingFromLeaderboard(leaderboardRecord)) {
+                leaderboard.push(
+                    await module.exports.leaderboard.makeLeaderboardRecord(pullRequest)
+                );
+            } else {
+                leaderboard = await module.exports.leaderboard.replaceLeaderboardRecord(
+                    leaderboard,
+                    pullRequest,
+                    leaderboardRecord
+                );
             }
-        }
-        return {
-            devLogin: storedPull.prAuthor,
-            totalAmountReceivedUSD: module.exports.roundTwoDecimals(dollarValue),
-            totalAmountReceivedKSM: module.exports.roundThreeDecimals(kusamaValue),
-            numberOfOpenPrs: 1,
-            mergedPrs: prMerged ? 1 : 0,
-            closedPrs: prMerged ? 0 : 1,
-            linesAdded: prMerged ? storedPull.linesAdded : 0,
-            linesRemoved: prMerged ? storedPull.linesRemoved : 0,
-            numOfTotalCommitsMerged: prMerged ? storedPull.commits : 0,
-            linkToLastSubscan,
-            lastMergedPrDate: prMerged ? storedPull.prMergedDate : null,
-            commentsCount: storedPull.commentsCount,
-            numOfLinkedIssues: storedPull.linkedIssues.length,
-        };
-    },
+            await shared.storeDataCf(process.env.CLDFLR_PULLS, pullRequest.prNumber, pullRequest);
+            await shared.storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', leaderboard);
+        },
 
-    /**
-     * @desc Updates one leaderboard record stored
-     * */
-    updateLeaderboardRecord: async (storedPull, leaderboardRecord) => {
-        let prMerged = storedPull.prState === 'MERGED';
-        prMerged
-            ? (leaderboardRecord.mergedPrs += 1)
-            : (leaderboardRecord.closedPrs += 1);
-        leaderboardRecord.numberOfOpenPrs += 1;
-        leaderboardRecord.commentsCount += storedPull.commentsCount;
-        leaderboardRecord.numOfLinkedIssues += storedPull.linkedIssues.length;
-        for (let i = 0; i < storedPull.transactions.length; i++) {
-            const oneTransaction = storedPull.transactions[i];
-            if (oneTransaction.transactionResult === true) {
-                if (shared.checks.newMergeDate(leaderboardRecord, storedPull)) {
-                    leaderboardRecord.linkToLastSubscan = oneTransaction.subscanLink;
-                }
-                leaderboardRecord.totalAmountReceivedUSD += oneTransaction.paidUsd;
-                leaderboardRecord.totalAmountReceivedKSM += oneTransaction.paidKsm;
-            }
-        }
-        if (prMerged) {
-            leaderboardRecord.linesAdded += storedPull.linesAdded;
-            leaderboardRecord.linesRemoved += storedPull.linesRemoved;
-            leaderboardRecord.numOfTotalCommitsMerged += storedPull.commits;
+        /**
+         * @desc Generates new entry into leaderboard stored on CF KV storage
+         * */
+        makeLeaderboardRecord: async (storedPull) => {
+            let prMerged = storedPull.prState === 'MERGED';
+            let linkToLastSubscan = null;
+            return {
+                devLogin: storedPull.prAuthor,
+                totalAmountReceivedUSD: module.exports.roundTwoDecimals(module.exports.getAmountUsdFromPullObject(storedPull)),
+                totalAmountReceivedKSM: module.exports.roundThreeDecimals(module.exports.getAmountKsmFromPullObject(storedPull)),
+                numberOfOpenPrs: 1,
+                mergedPrs: prMerged ? 1 : 0,
+                closedPrs: prMerged ? 0 : 1,
+                linesAdded: prMerged ? storedPull.linesAdded : 0,
+                linesRemoved: prMerged ? storedPull.linesRemoved : 0,
+                numOfTotalCommitsMerged: prMerged ? storedPull.commits : 0,
+                linkToLastSubscan,
+                lastMergedPrDate: prMerged ? storedPull.prMergedDate : null,
+                commentsCount: storedPull.commentsCount,
+                numOfLinkedIssues: storedPull.linkedIssues.length,
+            };
+        },
+
+        /**
+         * @desc Updates one leaderboard record stored
+         * */
+        updateLeaderboardRecord: async (storedPull, leaderboardRecord) => {
+            let prMerged = storedPull.prState === 'MERGED';
+            leaderboardRecord.numberOfOpenPrs += 1;
+            leaderboardRecord.commentsCount += storedPull.commentsCount;
+            leaderboardRecord.numOfLinkedIssues += storedPull.linkedIssues.length;
+            leaderboardRecord.totalAmountReceivedUSD += module.exports.roundTwoDecimals(module.exports.getAmountUsdFromPullObject(storedPull));
+            leaderboardRecord.totalAmountReceivedKSM += module.exports.roundThreeDecimals(module.exports.getAmountKsmFromPullObject(storedPull));
             if (shared.checks.newMergeDate(leaderboardRecord, storedPull)) {
                 leaderboardRecord.lastMergedPrDate = storedPull.prMergedDate;
+                if (storedPull.transactions[0].transactionSuccess === true) {
+                    leaderboardRecord.linkToLastSubscan = storedPull.transactions[0].subscanLink;
+                }
             }
-        }
-        return leaderboardRecord;
-    },
+            if (prMerged) {
+                leaderboardRecord.linesAdded += storedPull.linesAdded;
+                leaderboardRecord.linesRemoved += storedPull.linesRemoved;
+                leaderboardRecord.numOfTotalCommitsMerged += storedPull.commits;
+                leaderboardRecord.mergedPrs += 1
+            } else  {
+                leaderboardRecord.closedPrs += 1
+            }
+            return leaderboardRecord;
+        },
 
-    /**
-     * @desc used for edge case, where leaderboard was updated after merge but then another transaction was added to the last pull
-     * @returns updated leaderboard*/
-    fixLeaderboard: async (leaderboard, pullRequest) => {
-        let leaderboardRecord = leaderboard.find(
-            (obj) => obj.devLogin === pullRequest.prAuthor
-        );
-        let prMerged = pullRequest.prState === 'MERGED';
-        leaderboardRecord.totalAmountReceivedKSM -=
-            module.exports.getAmountKsmFromPullObject(pullRequest);
-        leaderboardRecord.totalAmountReceivedUSD -=
-            module.exports.getAmountKsmFromPullObject(pullRequest);
-        leaderboardRecord.numberOfOpenPrs -= 1;
-        leaderboardRecord.mergedPrs -= prMerged ? 1 : 0;
-        leaderboardRecord.closedPrs -= prMerged ? 0 : 1;
-        leaderboardRecord.linesAdded -= prMerged ? pullRequest.linesAdded : 0;
-        leaderboardRecord.linesRemoved -= prMerged ? pullRequest.linesRemoved : 0;
-        leaderboardRecord.numOfTotalCommitsMerged -= prMerged
-            ? pullRequest.commits
-            : 0;
-        leaderboardRecord.commentsCount -= pullRequest.commentsCount;
-        leaderboardRecord.numOfLinkedIssues -= pullRequest.linkedIssues.length;
-        pullRequest = await module.exports.getPullRequest(pullRequest.prNumber)
-        pullRequest.prLeaderboard = true
-        await shared.storeDataCf(process.env.CLDFLR_PULLS, pullRequest.prNumber, pullRequest)
-        // let prPaid = module.exports.getAmountUsdFromPullObject(pullRequest) > 0;
-        // if (prMerged && prPaid) {
-        //     let mergedAndPaid = await shared.getDataAc(settings.mergedAndPaid);
-        //     if (!mergedAndPaid.includes(pullRequest.prNumber)) {
-        //         mergedAndPaid.push(pullRequest.prNumber);
-        //         await shared.storeDataAc(settings.mergedAndPaid, mergedAndPaid);
-        //     }
-        // }
-        await module.exports.replaceLeaderboardRecord(
-            leaderboard,
-            pullRequest,
-            leaderboardRecord
-        );
-    },
-
-    /**
-     * @returns number of pull request for selected query (MERGED/CLOSED/OPEN)
-     * @param query - graphql query to get total count of desired PR state
-     */
-    getNumberOfPullRequests: async (query) => {
-        const queryResult = await graphql(query,
-            {
-                name: process.env.GITHUB_REPO,
-                owner: process.env.GITHUB_OWNER,
-                headers: {
-                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
-                },
-            }
-        );
-        return queryResult.repository.pullRequests.totalCount;
-    },
-
-    /**
-     * @returns MD version of leaderboard
-     * */
-    makeLeaderboardMd: async (leaderboard) => {
-        let closedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.closedPullRequestsCount);
-        let mergedPullRequests = await module.exports.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount);
-        let mdTable = module.exports.tableHeader;
-        for (let i = 0; i < leaderboard.length; i++) {
-            const oneRecord = leaderboard[i];
-            if (oneRecord.totalAmountReceivedUSD <= 0) {
-                continue;
-            }
-            if (settings.ignoredUsers.includes(oneRecord.devLogin)) {
-                continue;
-            }
-            mdTable += module.exports.makeLeaderboardRecordMd(
-                oneRecord.devLogin,
-                oneRecord
+        /**
+         * @desc used for edge case, where leaderboard was updated after merge but then another transaction was added to the last pull
+         * @returns updated leaderboard*/
+        fixLeaderboard: async (leaderboard, pullRequest, newPullRequest) => {
+            let leaderboardRecord = leaderboard.find(
+                (obj) => obj.devLogin === pullRequest.prAuthor
             );
-        }
-        mdTable += module.exports.tableFooter(
-            moment().format('MMM Do YYYY'),
-            mergedPullRequests,
-            closedPullRequests
-        );
-        return mdTable;
-    },
+            leaderboardRecord.totalAmountReceivedUSD -= module.exports.getAmountUsdFromPullObject(pullRequest)
+            leaderboardRecord.totalAmountReceivedKSM -= module.exports.getAmountKsmFromPullObject(pullRequest)
+            leaderboardRecord.totalAmountReceivedUSD += module.exports.getAmountUsdFromPullObject(newPullRequest)
+            leaderboardRecord.totalAmountReceivedKSM += module.exports.getAmountKsmFromPullObject(newPullRequest)
+            leaderboardRecord.linkToLastSubscan = newPullRequest.transactions[0].subscanLink
+            await shared.storeDataCf(process.env.CLDFLR_TABLES, 'leaderboard', leaderboard);
+        },
 
-    /**
-     * @desc Generates one line of .md  version of leaderboard.
-     * */
-    makeLeaderboardRecordMd: (devLogin, leaderboardRecord) => {
-        let mdRow = [
-            devLogin,
-            module.exports.roundTwoDecimals(leaderboardRecord.totalAmountReceivedUSD),
-            module.exports.roundThreeDecimals(leaderboardRecord.totalAmountReceivedKSM),
-            module.exports.roundTwoDecimals(leaderboardRecord.totalAmountReceivedUSD / leaderboardRecord.mergedPrs),
-            leaderboardRecord.numberOfOpenPrs,
-            leaderboardRecord.mergedPrs,
-            leaderboardRecord.closedPrs,
-            leaderboardRecord.linesAdded,
-            leaderboardRecord.linesRemoved,
-            leaderboardRecord.numOfTotalCommitsMerged,
-            leaderboardRecord.commentsCount,
-            module.exports.roundTwoDecimals(leaderboardRecord.commentsCount / leaderboardRecord.numberOfOpenPrs),
-            leaderboardRecord.numOfLinkedIssues,
-            leaderboardRecord.numberOfOpenPrs,
-            leaderboardRecord.linkToLastSubscan
-        ]
-        return `| ${mdRow[0]} | $${mdRow[1]}/${mdRow[2]}KSM | $${mdRow[3]} | ${mdRow[4]} | ${mdRow[5]} | ${mdRow[6]} | ${mdRow[7]}/${mdRow[8]} | ${mdRow[9]} | ${mdRow[10]} | ${mdRow[11]} | ${mdRow[12]}/${mdRow[13]} |[Link to last transaction](${mdRow[14]}) |\n`
-    },
+        /**
+         * @returns number of pull request for selected query (MERGED/CLOSED/OPEN)
+         * @param query - graphql query to get total count of desired PR state
+         */
+        getNumberOfPullRequests: async (query) => {
+            const queryResult = await graphql(query,
+                {
+                    name: process.env.GITHUB_REPO,
+                    owner: process.env.GITHUB_OWNER,
+                    headers: {
+                        authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                    },
+                }
+            );
+            return queryResult.repository.pullRequests.totalCount;
+        },
 
-    tableHeader: `| devName | total amount received |  amount per merged PR | total open PRs | merged PRs | closed PRs | lines added to lines removed| commits merged | total # comments | comments per PR | resolved issues to # of open PR | last transaction  |
+        /**
+         * @returns MD version of leaderboard
+         * */
+        makeLeaderboardMd: async (leaderboard) => {
+            let closedPullRequests = await module.exports.leaderboard.getNumberOfPullRequests(shared.queries.closedPullRequestsCount);
+            let mergedPullRequests = await module.exports.leaderboard.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount);
+            let mdTable = module.exports.leaderboard.tableHeader;
+            for (let i = 0; i < leaderboard.length; i++) {
+                const oneRecord = leaderboard[i];
+                if (oneRecord.totalAmountReceivedUSD <= 0) {
+                    continue;
+                }
+                if (settings.ignoredUsers.includes(oneRecord.devLogin)) {
+                    continue;
+                }
+                mdTable += module.exports.leaderboard.makeLeaderboardRecordMd(
+                    oneRecord.devLogin,
+                    oneRecord
+                );
+            }
+            mdTable += module.exports.leaderboard.tableFooter(
+                moment().format('MMM Do YYYY'),
+                mergedPullRequests,
+                closedPullRequests
+            );
+            return mdTable;
+        },
+
+        /**
+         * @desc Generates one line of .md  version of leaderboard.
+         * */
+        makeLeaderboardRecordMd: (devLogin, leaderboardRecord) => {
+            let mdRow = [
+                devLogin,
+                module.exports.roundTwoDecimals(leaderboardRecord.totalAmountReceivedUSD),
+                module.exports.roundThreeDecimals(leaderboardRecord.totalAmountReceivedKSM),
+                module.exports.roundTwoDecimals(leaderboardRecord.totalAmountReceivedUSD / leaderboardRecord.mergedPrs),
+                leaderboardRecord.numberOfOpenPrs,
+                leaderboardRecord.mergedPrs,
+                leaderboardRecord.closedPrs,
+                leaderboardRecord.linesAdded,
+                leaderboardRecord.linesRemoved,
+                leaderboardRecord.numOfTotalCommitsMerged,
+                leaderboardRecord.commentsCount,
+                module.exports.roundTwoDecimals(leaderboardRecord.commentsCount / leaderboardRecord.numberOfOpenPrs),
+                leaderboardRecord.numOfLinkedIssues,
+                leaderboardRecord.numberOfOpenPrs,
+                leaderboardRecord.linkToLastSubscan
+            ]
+            return `| ${mdRow[0]} | $${mdRow[1]}/${mdRow[2]}KSM | $${mdRow[3]} | ${mdRow[4]} | ${mdRow[5]} | ${mdRow[6]} | ${mdRow[7]}/${mdRow[8]} | ${mdRow[9]} | ${mdRow[10]} | ${mdRow[11]} | ${mdRow[12]}/${mdRow[13]} |[Link to last transaction](${mdRow[14]}) |\n`
+        },
+
+        tableHeader: `| devName | total amount received |  amount per merged PR | total open PRs | merged PRs | closed PRs | lines added to lines removed| commits merged | total # comments | comments per PR | resolved issues to # of open PR | last transaction  |
 |-----------------|-----------------------|----------------------|----------------|------------|------------|------------------------------|----------------|------------------|-----------------|---------------------------------|-----------------|  \n`,
 
-    tableFooter: (date, mergedPullRequests, closedPullRequests) => {
-        return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${mergedPullRequests} MERGED AND ${closedPullRequests} CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
+        tableFooter: (date, mergedPullRequests, closedPullRequests) => {
+            return `\n \n **LEADERBOARD TABLE GENERATED AT ${date} FROM ${mergedPullRequests} MERGED AND ${closedPullRequests} CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**`;
+        }
     },
 
-    /**
-     @desc Record streak of finished issues within 7 days time. Streak is recorded in devObject on Cloudflare KV storage.
-     Function to create comment about record streak is commented off by default. Result is shown only in logs of payout_commentCreated.js
-     @param storedIssue temp issue object stored on AC
-     @param devObject dev object stored on CF
-     @param issueNumber number of issue
-     @param prNumber number of PR
-     @param amount of USD paid for PR
-     @example
-     {
+    finishedStreak: {
+        /**
+         @desc Record streak of finished issues within 7 days time. Streak is recorded in devObject on Cloudflare KV storage.
+         Function to create comment about record streak is commented off by default. Result is shown only in logs of payout_commentCreated.js
+         @param storedIssue temp issue object stored on AC
+         @param devObject dev object stored on CF
+         @param issueNumber number of issue
+         @param prNumber number of PR
+         @param amount of USD paid for PR
+         @example
+         {
             timeOfAssignment: time of assignment,
             prPaidTime: time of payment received ,
             issueNumber: issue number,
             prNumber: PR number,
             amountUsd: amount received ,
          }
-     */
-    recordFinishedStreak: async (
-        storedIssue,
-        devObject,
-        issueNumber,
-        prNumber,
-        amount
-    ) => {
-        if (!shared.checks.storedIssueExists(storedIssue)) {
-            return;
-        }
-        let amountUsdForPr = amount !== undefined ? amount : 0;
-        if (amountUsdForPr === 0) {
-            return;
-        }
-        if (devObject.finishedStreak === []) {
-            devObject.finishedStreak.push({
-                timeOfAssignment: storedIssue.timeOfAssignment,
-                prPaidTime: moment().format(),
-                issueNumber,
-                prNumber,
-                amountUsd: amountUsdForPr,
-            });
-        } else {
-            if (shared.checks.isInFinishedStreak(devObject, prNumber)) {
-                devObject = await module.exports.fixFinishedStreak(devObject, prNumber, amount)
-            } else {
+         */
+        recordFinishedStreak: async (
+            storedIssue,
+            devObject,
+            issueNumber,
+            prNumber,
+            amount
+        ) => {
+            if (!shared.checks.storedIssueExists(storedIssue)) {
+                return;
+            }
+            let amountUsdForPr = amount !== undefined ? amount : 0;
+            if (amountUsdForPr === 0) {
+                return;
+            }
+            if (devObject.finishedStreak === []) {
                 devObject.finishedStreak.push({
                     timeOfAssignment: storedIssue.timeOfAssignment,
                     prPaidTime: moment().format(),
@@ -499,107 +469,104 @@ module.exports = {
                     prNumber,
                     amountUsd: amountUsdForPr,
                 });
+            } else {
+                if (shared.checks.isInFinishedStreak(devObject, prNumber)) {
+                    devObject = await module.exports.finishedStreak.fixFinishedStreak(devObject, prNumber, amount)
+                } else {
+                    devObject.finishedStreak.push({
+                        timeOfAssignment: storedIssue.timeOfAssignment,
+                        prPaidTime: moment().format(),
+                        issueNumber,
+                        prNumber,
+                        amountUsd: amountUsdForPr,
+                    });
+                }
             }
-        }
-        for (let i = 0; i < devObject.finishedStreak.length; i++) {
-            if (
-                moment(devObject.finishedStreak[i].timeOfAssignment).add(7, 'days') <
-                moment()
-            ) {
-                devObject.finishedStreak.splice(i, 1);
+            for (let i = 0; i < devObject.finishedStreak.length; i++) {
+                if (
+                    moment(devObject.finishedStreak[i].timeOfAssignment).add(7, 'days') <
+                    moment()
+                ) {
+                    devObject.finishedStreak.splice(i, 1);
+                }
             }
-        }
 
-        if (devObject.finishedStreak.length >= settings.finishedStreakLimit) {
-            const partialComment = module.exports.payoutMultiplierPartialComment(
-                devObject.finishedStreak
-            );
-            console.log(
-                settings.comments.payoutMultiplier(
-                    storedIssue.assignee,
-                    devObject.finishedStreak,
-                    partialComment
-                )
-            );
-            // UNCOMMENT code below in order to start using streaks live, they will currently post info about streak under third in a row and post "pay XYZ usd" comment for other bot to pick up. otherwise, this function stays only in logs.
-            // await shared.createComment(
-            //     issueNumber,
-            //     settings.comments.payoutMultiplier(
-            //         storedIssue.assignee,
-            //         devObject.finishedStreak,
-            //         partialComment
-            //     )
-            // );
-            // await shared.createComment(
-            //     issueNumber,
-            //     settings.comments.streakMessageForOtherBot(
-            //         module.exports.totalAmountUsd(devObject.finishedStreak)
-            //     )
-            // );
-            devObject.finishedStreak = []; //once streak has been hit, it's going to delete itself
-        }
-        await shared.storeDataCf(process.env.CLDFLR_DEVS, storedIssue.assignee, devObject);
-    },
-
-    /**
-     * @returns true if FinishedStreak was fixed
-     */
-    fixFinishedStreak: async (devObject, prNumber, amount) => {
-        for (let i = 0; i < devObject.finishedStreak.length; i++) {
-            if (devObject.finishedStreak[i].prNumber === prNumber) {
-                devObject.finishedStreak[i].amountUsd = amount;
-                break
+            if (devObject.finishedStreak.length >= settings.finishedStreakLimit) {
+                const partialComment = module.exports.finishedStreak.payoutMultiplierPartialComment(
+                    devObject.finishedStreak
+                );
+                console.log(
+                    settings.comments.payoutMultiplier(
+                        storedIssue.assignee,
+                        devObject.finishedStreak,
+                        partialComment
+                    )
+                );
+                // UNCOMMENT code below in order to start using streaks live, they will currently post info about streak under third in a row and post "pay XYZ usd" comment for other bot to pick up. otherwise, this function stays only in logs.
+                // await shared.createComment(
+                //     issueNumber,
+                //     settings.comments.payoutMultiplier(
+                //         storedIssue.assignee,
+                //         devObject.finishedStreak,
+                //         partialComment
+                //     )
+                // );
+                // await shared.createComment(
+                //     issueNumber,
+                //     settings.comments.streakMessageForOtherBot(
+                //         module.exports.finishedStreak.totalAmountUsd(devObject.finishedStreak)
+                //     )
+                // );
+                devObject.finishedStreak = []; //once streak has been hit, it's going to delete itself
             }
-        }
-        return devObject
-    },
+            await shared.storeDataCf(process.env.CLDFLR_DEVS, storedIssue.assignee, devObject);
+        },
 
-    /**
-     * @returns total amount earned in one finished streak
-     * @param finishedStreak array of object stored within devObject
-     * */
-    totalAmountUsd: (finishedStreak) => {
-        let totalAmountUsd = 0;
-        for (let i = 0; i < finishedStreak.length; i++) {
-            totalAmountUsd += finishedStreak[i].amountUsd;
-        }
-        return totalAmountUsd;
-    },
+        /**
+         * @returns true if FinishedStreak was fixed
+         */
+        fixFinishedStreak: async (devObject, prNumber, amount) => {
+            for (let i = 0; i < devObject.finishedStreak.length; i++) {
+                if (devObject.finishedStreak[i].prNumber === prNumber) {
+                    devObject.finishedStreak[i].amountUsd = amount;
+                    break
+                }
+            }
+            return devObject
+        },
 
-    /**
-     * @returns part of generated comment based on current saved streak.
-     * @param finishedStreak array of objects used to track finished issues in less than 7 days from assignment
-     */
-    payoutMultiplierPartialComment: (finishedStreak) => {
-        let partialComment = '';
-        let totalAmountUsd = module.exports.totalAmountUsd(finishedStreak);
-        for (let i = 0; i < finishedStreak.length; i++) {
-            partialComment += `\n Issue #${
-                finishedStreak[i].issueNumber
-            } assigned ${moment(finishedStreak[i].timeOfAssignment).format(
-                settings.dateFormat
-            )}\n`;
-        }
-        partialComment += `\n \n For total of $${module.exports.roundTwoDecimals(totalAmountUsd)}. Multiplied by factor of 1.5, user should be paid extra $${
-            module.exports.roundTwoDecimals(totalAmountUsd * 1.5 - totalAmountUsd)
-        }.`;
-        return partialComment;
-    },
+        /**
+         * @returns total amount earned in one finished streak
+         * @param finishedStreak array of object stored within devObject
+         * */
+        totalAmountUsd: (finishedStreak) => {
+            let totalAmountUsd = 0;
+            for (let i = 0; i < finishedStreak.length; i++) {
+                totalAmountUsd += finishedStreak[i].amountUsd;
+            }
+            return totalAmountUsd;
+        },
 
-    roundTwoDecimals: (number) => {
-        return Math.round((number + Number.EPSILON) * 100) / 100
-    },
+        /**
+         * @returns part of generated comment based on current saved streak.
+         * @param finishedStreak array of objects used to track finished issues in less than 7 days from assignment
+         */
+        payoutMultiplierPartialComment: (finishedStreak) => {
+            let partialComment = '';
+            let totalAmountUsd = module.exports.finishedStreak.totalAmountUsd(finishedStreak);
+            for (let i = 0; i < finishedStreak.length; i++) {
+                partialComment += `\n Issue #${
+                    finishedStreak[i].issueNumber
+                } assigned ${moment(finishedStreak[i].timeOfAssignment).format(
+                    settings.dateFormat
+                )}\n`;
+            }
+            partialComment += `\n \n For total of $${module.exports.roundTwoDecimals(totalAmountUsd)}. Multiplied by factor of 1.5, user should be paid extra $${
+                module.exports.roundTwoDecimals(totalAmountUsd * 1.5 - totalAmountUsd)
+            }.`;
+            return partialComment;
+        },
 
-    roundThreeDecimals: (number) => {
-        return Math.round((number + Number.EPSILON) * 1000) / 1000
-    },
-
-    getLinkedIssue: (pullRequest) => {
-        if (pullRequest.linkedIssues.length === 0) {
-            return 0
-        } else {
-            return pullRequest.linkedIssues[0]
-        }
     },
 
     burnRate: {
@@ -660,6 +627,24 @@ module.exports = {
             );
             await shared.storeDataCf(process.env.CLDFLR_TABLES, 'burnRate', burnRate)
             return burnRate
+        },
+        /**
+         * @desc used for edge case, where leaderboard was updated after merge but then another transaction was added to the last pull
+         * @returns updated leaderboard*/
+        fixBurnRate: async (burnRate, pullRequest, newPullRequest) => {
+            let weekRecord = burnRate.find(
+                (obj) => parseInt(obj.week) === parseInt(moment(pullRequest.prMergedDate).format('W'))
+            );
+            let monthRecord = burnRate.find(
+                (obj) => parseInt(obj.month) === parseInt(moment(pullRequest.prMergedDate).format('M'))
+            );
+            weekRecord.amountPaid -= module.exports.getAmountUsdFromPullObject(pullRequest)
+            weekRecord.amountPaid += module.exports.getAmountUsdFromPullObject(newPullRequest)
+            weekRecord.avgPaidPr = weekRecord.amountPaid / weekRecord.numberOfPaidPullRequests
+            monthRecord.amountPaid -= module.exports.getAmountUsdFromPullObject(pullRequest)
+            monthRecord.amountPaid += module.exports.getAmountUsdFromPullObject(newPullRequest)
+            monthRecord.avgPaidPr = monthRecord.amountPaid / monthRecord.numberOfPaidPullRequests
+            await shared.storeDataCf(process.env.CLDFLR_TABLES, 'burnRate', burnRate)
         },
         makeBurnRateMdTable: (burnRate) => {
             let mdTable = module.exports.burnRate.burnRateHeaderMd

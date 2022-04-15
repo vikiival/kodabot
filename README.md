@@ -61,7 +61,7 @@ pullObject: // stored under key: prNumber, value: pullObject, at pulls namespace
       githubLink: string,  
       transactions: [   
         {  
-          transactionResult: string,
+          transactionSuccess: boolean,
           paidUsd: number,  
           paidKsm: number,  
           subscanLink: string,

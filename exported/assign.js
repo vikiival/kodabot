@@ -194,7 +194,6 @@ module.exports = {
                 storedIssue.queue.splice(i, 1);
             }
         }
-        console.log('queue in removeDevFromQueue', storedIssue.queue);
         return storedIssue;
     },
 
