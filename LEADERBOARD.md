@@ -5,8 +5,8 @@
 | Jarsen136 | $5802.61/36.513KSM | $103.62 | 59 | 56 | 3 | 2885/1847 | 203 | 451 | 7.64 | 55/59 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x6459c5f320e570c14259bff166fa5032760deecb32f8bef22ae3da50e2ffe927) |
 | preschian | $2302.68/13.818KSM | $121.19 | 20 | 19 | 1 | 17844/18618 | 175 | 149 | 7.45 | 19/20 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x3cc0ff8f370dacc6aab97493ee130dfd26436a9daa4363241e340456bfc74bce) |
 | chandradot99 | $1204.47/5.955KSM | $133.83 | 9 | 9 | 0 | 900/146 | 43 | 75 | 8.33 | 8/9 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x1c9ffac9f4eb4caf128eb246b33ddd6b81ac909aff8ece44e2b383c60f4dbe88) |
-| petersopko | $1199.84/7.693KSM | $74.99 | 18 | 16 | 2 | 412/404 | 51 | 98 | 5.44 | 16/18 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x050d8140cca5bcd5b280e602323975a4a6de7e294bf95d50e1921bad3da49174) |
 | pandasamanvaya | $1098.42/4.32KSM | $64.61 | 18 | 17 | 1 | 1560/455 | 66 | 35 | 1.94 | 7/18 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0xdd36aa19ffffc1a401e9d1e5cda74433d91e922571e581d6c09a3c2ec126ab6e) |
+| petersopko | $1049.51/6.877KSM | $80.73 | 15 | 13 | 2 | 409/401 | 48 | 92 | 6.13 | 13/15 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x050d8140cca5bcd5b280e602323975a4a6de7e294bf95d50e1921bad3da49174) |
 | rhaicode | $954.79/3.06KSM | $238.7 | 7 | 4 | 3 | 1014/680 | 27 | 70 | 10 | 7/7 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x5945e757597ec9c581749d5bad66c52ba3b3148fef35ca60a3801e1f98c3f093) |
 | zhengow | $949.03/7.252KSM | $86.28 | 11 | 11 | 0 | 548/227 | 54 | 59 | 5.36 | 11/11 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x0ba82161c726d9d5cdca69fb032e85df969f216c1b89a06d57ecdacb75b31682) |
 | atharva3010 | $608.03/2.34KSM | $202.68 | 4 | 3 | 1 | 50/87 | 7 | 37 | 9.25 | 2/4 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x7deb276dc5964b973dda2926a3d52f236fc39346830b9232e3f0192111e91237) |
@@ -15,7 +15,7 @@
 | Top-Kraken | $300.83/0.7KSM | $150.42 | 4 | 2 | 2 | 595/7 | 22 | 21 | 5.25 | 4/4 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0xe4e984cf692f06a76319756e0e6a9589c0bfaa8420868e42118991d60650e19b) |
 | zhyd1997 | $300.23/1.866KSM | $100.08 | 5 | 3 | 2 | 90/33 | 10 | 51 | 10.2 | 5/5 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0xeb3f0efb42bea11c033357ecca2fb0f75be8c1baa97d0ccc870a533b4d505d33) |
 | lohba | $255.69/0.86KSM | $63.92 | 4 | 4 | 0 | 51/17 | 21 | 25 | 6.25 | 3/4 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x0ba6e1894450bfda82d058f98ffc25f8b3399c51f28d2cdfa19ea5751455d889) |
-| KngZhi | $251.23/1.411KSM | $62.81 | 4 | 4 | 0 | 76/60 | 16 | 33 | 8.25 | 2/4 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0xc4d4416f5b44307d89d6afd7def4a6b9e5c90ed0f48992bb72b1ee5543b6e3b0) |
+| KngZhi | $251.23/1.411KSM | $50.25 | 6 | 5 | 1 | 78/62 | 17 | 38 | 6.33 | 4/6 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0xc4d4416f5b44307d89d6afd7def4a6b9e5c90ed0f48992bb72b1ee5543b6e3b0) |
 | newraina | $249.94/1.799KSM | $124.97 | 2 | 2 | 0 | 86/6 | 10 | 16 | 8 | 2/2 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x21bbca43605aa8eacd0e901e09063a8a1613a23d68e6c6b4b792569c850c582c) |
 | MubarakSULAYMAN | $201.81/0.949KSM | $50.45 | 5 | 4 | 1 | 61/11 | 22 | 26 | 5.2 | 2/5 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x0795276eff93f1095da6313e0ae4778e353e78c9a8a94d0016a85f34fb2c3ffa) |
 | MiracleCorunus | $153.72/0.43KSM | $153.72 | 5 | 1 | 4 | 315/131 | 3 | 22 | 4.4 | 0/5 |[Link to last transaction](https://kusama.subscan.io/extrinsic/10176854-4) |
@@ -25,7 +25,6 @@
 | LatinSoul | $100.17/0.36KSM | $100.17 | 3 | 1 | 2 | 32/32 | 5 | 17 | 5.67 | 0/3 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x14101d25cb4ddc73159dfadabba18c6e3f98fa369dfce47cefde7699d964a538) |
 | magrisya | $99.94/0.722KSM | $99.94 | 2 | 1 | 1 | 642/0 | 8 | 12 | 6 | 0/2 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x9d2eeb9bd4f32b95bdefb9bff7f84025eb46473f3844c6107cb02613d85570a5) |
 | fairywellos | $52.95/0.12KSM | $52.95 | 2 | 1 | 1 | 40/9 | 9 | 11 | 5.5 | 2/2 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x9b8c61de44f59da4d0ba0ffda3b732470435bc9042604fe3c2f04a3df2585542) |
-| kodadev2398 | $50.11/0.272KSM | $50.11 | 1 | 1 | 0 | 1/1 | 1 | 2 | 2 | 1/1 |[Link to last transaction](null) |
 
  
- **LEADERBOARD TABLE GENERATED AT Apr 17th 2022 FROM 262 MERGED AND 80 CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
+ **LEADERBOARD TABLE GENERATED AT Apr 17th 2022 FROM 263 MERGED AND 80 CLOSED PULL REQUESTS MADE BY CONTRIBUTIONS TO KODADOT**
