@@ -1,0 +1,53 @@
+{
+  "branchName": "kodabot",
+  "leaderboardFile": "LEADERBOARD.md",
+  "burnRateFile": "BURN_RATE.md",
+  "ignoredUsers": [
+    "kodabot",
+    "yangwao",
+    "vikiival",
+    "roiLeo"
+  ],
+  "payRolledUsers": [
+    "kodabot",
+    "yangwao",
+    "vikiival",
+    "roiLeo",
+    "petersopko"
+  ],
+  "optionHours": 12,
+  "devAssignmentLimit": 5,
+  "mergedAndPaidLimit": 10,
+  "finishedStreakLimit": 3,
+  "timeSpan": "hours",
+  "blockedLabel": "blocked",
+  "researchLabel": "research",
+  "payoutPhrase": "Perfect, I’ve sent the payout",
+  "ignoredStorage": [
+    "mergedPulls"
+  ],
+  "mergedPulls": "mergedPulls",
+  "dateFormat": "dddd, MMMM Do YYYY, kk:mm:ss",
+  "bountyTimes": {
+    "$": 24,
+    "$$": 48,
+    "$$$": 72,
+    "$$$$": 96,
+    "$$$$$": 120
+  },
+  "goPhrases": [
+    "👋",
+    "👋🏻",
+    "👋🏼",
+    "👋🏽",
+    "👋🏾",
+    "👋🏿",
+    ":wave:"
+  ],
+  "passPhrases": [
+    "pass"
+  ],
+  "ignorePhrases": [
+    "ignore"
+  ]
+}
