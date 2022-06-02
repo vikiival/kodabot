@@ -76,8 +76,16 @@ module.exports = {
         });
     },
 
-
-
+    deleteDataCf: async (namespace, key) => {
+        return await lib.http.request['@1.1.7']({
+            method: 'DELETE',
+            url: module.exports.makeUrl(namespace, key),
+            headers: {
+                'X-Auth-Email': process.env.CLDFLR_EMAIL,
+                'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY
+            }
+        });
+    },
     /**
      * @returns devObject stored on CF
      * @param devLogin - key used to 'GET' devObject from CF
@@ -100,13 +108,14 @@ module.exports = {
      * @desc Creates comment on GH
      * @param issueNumber number of commented issue
      * @param body contents of comment
+     * @param ghObject
      */
-    createComment: async (issueNumber, body) => {
+    createComment: async (issueNumber, body, ghObject) => {
         await octokit.request(
             'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
             {
-                owner: process.env.GITHUB_OWNER,
-                repo: process.env.GITHUB_REPO,
+                owner: ghObject.owner,
+                repo: ghObject.repo,
                 issue_number: issueNumber,
                 body,
             }
@@ -158,7 +167,7 @@ module.exports = {
         storedIssue.optionPeriod = null;
         storedIssue.optionHolder = null;
         storedIssue.assignmentPeriod = null;
-        await module.exports.storeDataAc(issueNumber, storedIssue);
+        await module.exports.storeDataCf(process.env.CLDFLR_ISSUES, issueNumber, storedIssue);
     },
 
     /**
@@ -207,7 +216,7 @@ module.exports = {
             storedIssue.optionHolder = null;
             storedIssue.optionPeriod = null;
         }
-        await module.exports.storeDataAc(issueNumber, storedIssue);
+        await module.exports.storeDataCf(process.env.CLDFLR_ISSUES, issueNumber, storedIssue);
         return storedIssue;
     },
 
@@ -219,19 +228,27 @@ module.exports = {
      * @param prMerged boolean used to determine if PR was merged
      * */
     updateDevObject: async (devObject, devLogin, issueNumber, prMerged) => {
+        if (devObject.finished.includes(issueNumber)) {
+            return;
+        }
+        if (devObject.unfinished.includes(issueNumber) && prMerged) {
+            devObject.finished.push(issueNumber);
+            devObject.unfinished.splice(devObject.unfinished.indexOf(issueNumber), 1);
+        }
         if (devObject.assigned.includes(issueNumber)) {
             for (let i = 0; i < devObject.assigned.length; i++) {
                 if (devObject.assigned[i] === issueNumber) {
                     devObject.assigned.splice(i, 1);
                 }
             }
-        }
-        if (!prMerged) {
-            devObject.unfinished.push(issueNumber);
-            devObject.unfinished = [...new Set(devObject.unfinished)];
-        } else {
-            devObject.finished.push(issueNumber);
-            devObject.finished = [...new Set(devObject.finished)];
+
+            if (!prMerged) {
+                devObject.unfinished.push(issueNumber);
+                devObject.unfinished = [...new Set(devObject.unfinished)];
+            } else {
+                devObject.finished.push(issueNumber);
+                devObject.finished = [...new Set(devObject.finished)];
+            }
         }
         await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
     },
@@ -255,7 +272,7 @@ module.exports = {
          * @returns true if PR was opened for this issue
          */
         prOpened: (storedIssue) => {
-            return storedIssue.prOpened !== null;
+            return storedIssue.prOpened !== null && storedIssue.prOpened !== undefined;
         },
 
         /**
@@ -264,7 +281,7 @@ module.exports = {
         assignmentExpired: (storedIssue) => {
             return (
                 moment() > moment(storedIssue.assignmentPeriod) &&
-                storedIssue.assignmentPeriod !== null
+                storedIssue.assignmentPeriod !== null && storedIssue.assignmentPeriod !== undefined
             );
         },
 
@@ -285,7 +302,7 @@ module.exports = {
         optionExpired: (storedIssue) => {
             return (
                 moment(storedIssue.optionPeriod) < moment() &&
-                storedIssue.optionPeriod !== null
+                storedIssue.optionPeriod !== null && storedIssue.optionPeriod !== undefined
             );
         },
 
@@ -328,7 +345,12 @@ module.exports = {
          * @returns true if queue contains dev
          */
         queueForDev: (devLogin, storedIssue) => {
-            return storedIssue.queue.includes(devLogin);
+            if (storedIssue.result !== null) {
+                return storedIssue.queue.includes(devLogin);
+            }
+            else {
+                return false
+            }
         },
 
         /**
@@ -342,14 +364,15 @@ module.exports = {
          * @returns true if next in queue is comment creator
          */
         nextInQueueCommentCreator: (storedIssue, commentCreator) => {
+            if (storedIssue.result !== null) {
             return storedIssue.queue[0] === commentCreator;
-        },
+        }},
 
         /**
          * @returns true if stored issue exists
          */
         storedIssueExists: (storedIssue) => {
-            return storedIssue !== null;
+            return storedIssue.result !== null;
         },
 
         /**
@@ -386,6 +409,7 @@ module.exports = {
          */
         emptyIssue: (storedIssue) => {
             return (
+                storedIssue.ignored !== true &&
                 storedIssue.assignee === null &&
                 storedIssue.timeOfAssignment === null &&
                 storedIssue.assignmentPeriod === null &&
@@ -424,14 +448,14 @@ module.exports = {
          * @returns true if prAuthor matches storedIssue assignee
          */
         prAuthorIsAssigned: (storedIssue, prAuthor) => {
-            if (storedIssue === null) {
+            if (storedIssue.result === null) {
                 return false;
             }
             return storedIssue.assignee === prAuthor;
         },
 
         /**
-         * @returns true if there was a linked issue in PR body
+         * @returns true if there was a linked issue to this PR
          */
         linkedIssueNumber: (issueNumber) => {
             if (issueNumber === undefined) {
@@ -498,8 +522,49 @@ module.exports = {
             }
             return false;
         },
+
+        isIgnorePhrase(commentBody) {
+            return settings.ignorePhrases.includes(commentBody);
+        },
+        isIssueIgnored(storedIssue) {
+            if (storedIssue.result === null) {
+                return false
+            } else {
+                return storedIssue.ignored === true;
+            }
+        },
+        isIssueBlocked(labels) {
+            return labels.includes(settings.blockedLabel);
+        },
+
+        isIssueResearched(labels) {
+            return labels.includes(settings.researchLabel);
+        }
     },
     queries: {
+        getCollaborators: `
+                query getCollaborators($name: String!, $owner: String!) {
+                  repository(name: $name, owner: $owner) {
+                    collaborators {
+                      nodes {
+                        login
+                      }
+                    }
+                  }
+                }`,
+        getAssignees: `
+                query getAssignees($name: String!, $owner: String!, $number: Int!) {
+                  repository(name: $name, owner: $owner) {
+                    issue(number: $number) {
+                      assignees(first: 10) {
+                        nodes {
+                          login
+                        }
+                      }
+                    }
+                  }
+                }
+                `,
         mergedPullRequestsCount: `
                 query mergedPullRequestsCount($name: String!, $owner: String!, $states: [PullRequestState!] = MERGED) {
                   repository(name: $name, owner: $owner) {
@@ -562,5 +627,29 @@ module.exports = {
                   }
                 }
                 `,
+        isVerifiedContributor: `
+                query searchRepos($qstr: String!, $first: Int!) {
+                  search(query: $qstr, type: ISSUE, first: $first) {
+                    nodes {
+                      __typename
+                      ... on PullRequest {
+                        number
+                      }
+                    }
+                  }
+                }
+                `,
+        getIssueLabels: `
+                query getIssueLabels($name: String!, $owner: String!, $number: Int!) {
+                  repository(name: $name, owner: $owner) {
+                    issue(number: $number) {
+                      labels(first: 20) {
+                        nodes {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }`
     },
 };

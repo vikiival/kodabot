@@ -16,11 +16,11 @@ module.exports = {
     /**
      * @returns pull request object based on data from GitHub
      * */
-    getPullRequest: async (prNumber) => {
+    getPullRequest: async (prNumber, ghObject) => {
         let queryResult = await graphql(shared.queries.getPullRequest,
             {
-                repo: process.env.GITHUB_REPO,
-                owner: process.env.GITHUB_OWNER,
+                repo: ghObject.repo,
+                owner: ghObject.owner,
                 prNumber: prNumber,
                 headers: {
                     authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
@@ -28,13 +28,14 @@ module.exports = {
             }
         );
         queryResult = queryResult.repository.pullRequest
+        let transactions = []
         return {
             prLeaderboard: false,
             prNumber: queryResult.number,
             prAuthor: queryResult.author.login,
             prState: queryResult.state,
             githubLink: queryResult.url,
-            transactions: await module.exports.getTransactions(queryResult.comments.nodes),
+            transactions: transactions,
             prMergedDate: queryResult.mergedAt,
             commits: queryResult.commits.totalCount,
             linesAdded: queryResult.additions,
@@ -96,19 +97,21 @@ module.exports = {
                 hashArray.push(module.exports.getHashFromComment(element.body))
             }
         })
-        for (let i = 0; i < hashArray.length; i++) {
-            let subscanResult = await module.exports.getSubscanResult(hashArray[i])
-            let blockTimestamp = subscanResult.data.data.block_timestamp
-            let ksmAmount = parseFloat(subscanResult.data.data.transfer.amount)
-            let conversionRate = (await module.exports.getSubscanPrice(blockTimestamp)).data.data.price
-            if (subscanResult) {
-                transactions.push({
-                    transactionSuccess: subscanResult.data.data.success,
-                    paidUsd: subscanResult.data.data.success ? module.exports.roundTwoDecimals(ksmAmount * conversionRate) : 0,
-                    paidKsm: subscanResult.data.data.success ? module.exports.roundThreeDecimals(ksmAmount) : 0,
-                    subscanLink: `https://kusama.subscan.io/extrinsic/${hashArray[i]}`,
-                    subscanHash: hashArray[i]
-                })
+        if (hashArray.length > 0) {
+            for (let i = 0; i < hashArray.length; i++) {
+                let subscanResult = await module.exports.getSubscanResult(hashArray[i])
+                let blockTimestamp = subscanResult.data.data.block_timestamp
+                let ksmAmount = parseFloat(subscanResult.data.data.transfer.amount)
+                let conversionRate = (await module.exports.getSubscanPrice(blockTimestamp)).data.data.price
+                if (subscanResult) {
+                    transactions.push({
+                        transactionSuccess: subscanResult.data.data.success,
+                        paidUsd: subscanResult.data.data.success ? module.exports.roundTwoDecimals(ksmAmount * conversionRate) : 0,
+                        paidKsm: subscanResult.data.data.success ? module.exports.roundThreeDecimals(ksmAmount) : 0,
+                        subscanLink: `https://kusama.subscan.io/extrinsic/${hashArray[i]}`,
+                        subscanHash: hashArray[i]
+                    })
+                }
             }
         }
         return transactions
@@ -150,11 +153,11 @@ module.exports = {
         return Math.round((number + Number.EPSILON) * 1000) / 1000
     },
 
-    getLinkedIssue: (pullRequest) => {
+    getLinkedIssues: (pullRequest) => {
         if (pullRequest.linkedIssues.length === 0) {
-            return 0
+            return []
         } else {
-            return pullRequest.linkedIssues[0]
+            return pullRequest.linkedIssues
         }
     },
 
@@ -171,12 +174,12 @@ module.exports = {
     /**
      * @desc merges main into bot branch
      * */
-    updateBotBranch: async (pullNumber, sha) => {
+    updateBotBranch: async (pullNumber, sha, ghObject) => {
         return await octokit.request(
             'PUT /repos/{owner}/{repo}/pulls/{pull_number}/update-branch',
             {
-                owner: process.env.GITHUB_OWNER,
-                repo: process.env.GITHUB_REPO,
+                owner: ghObject.owner,
+                repo: ghObject.repo,
                 pull_number: pullNumber,
                 expected_head_sha: sha,
             }
@@ -186,10 +189,10 @@ module.exports = {
     /**
      * @desc creates pull request from bot branch to main
      * */
-    createPullRequestForBot: async (title) => {
+    createPullRequestForBot: async (title, ghObject) => {
         return await octokit.request('POST /repos/{owner}/{repo}/pulls', {
-            owner: process.env.GITHUB_OWNER,
-            repo: process.env.GITHUB_REPO,
+            owner: ghObject.owner,
+            repo: ghObject.repo,
             head: settings.branchName,
             base: 'main',
             title: title,
@@ -200,18 +203,17 @@ module.exports = {
      * @returns SHA key for table.md file on GH
      * @desc URL needs to be adjusted in settings
      */
-    getShaKey: async (gitPath) => {
+    getShaKey: async (gitPath, ghObject) => {
         const queryResult = await graphql(shared.queries.getTableKey,
             {
-                repo: process.env.GITHUB_REPO,
-                owner: process.env.GITHUB_OWNER,
+                repo: ghObject.repo,
+                owner: ghObject.owner,
                 gitPath: gitPath,
                 headers: {
                     authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
                 },
             }
         );
-        console.log(queryResult);
         return queryResult.repository.object.oid;
     },
 
@@ -219,13 +221,13 @@ module.exports = {
      * @desc Pushes updated table to branch
      * @returns information about commit, including SHA
      */
-    pushTable: async (mdTable, gitPath, fileName, title) => {
+    pushTable: async (mdTable, gitPath, fileName, title, ghObject) => {
         const sha = await module.exports.getShaKey(gitPath);
         return await octokit.request(
             'PUT /repos/{owner}/{repo}/contents/{path}',
             {
-                owner: process.env.GITHUB_OWNER,
-                repo: process.env.GITHUB_REPO,
+                owner: ghObject.owner,
+                repo: ghObject.repo,
                 path: fileName,
                 message: title,
                 content: btoa(mdTable),
@@ -236,7 +238,6 @@ module.exports = {
     },
 
     leaderboard: {
-
         /**
          * @desc replaces old leaderboard record with updated one
          * @returns updated sorted leaderboard
@@ -292,7 +293,6 @@ module.exports = {
          * */
         makeLeaderboardRecord: async (storedPull) => {
             let prMerged = storedPull.prState === 'MERGED';
-            let linkToLastSubscan = null;
             return {
                 devLogin: storedPull.prAuthor,
                 totalAmountReceivedUSD: module.exports.roundTwoDecimals(module.exports.getAmountUsdFromPullObject(storedPull)),
@@ -303,7 +303,7 @@ module.exports = {
                 linesAdded: prMerged ? storedPull.linesAdded : 0,
                 linesRemoved: prMerged ? storedPull.linesRemoved : 0,
                 numOfTotalCommitsMerged: prMerged ? storedPull.commits : 0,
-                linkToLastSubscan,
+                linkToLastSubscan: storedPull.transactions[0] ? storedPull.transactions[0].subscanLink : null,
                 lastMergedPrDate: prMerged ? storedPull.prMergedDate : null,
                 commentsCount: storedPull.commentsCount,
                 numOfLinkedIssues: storedPull.linkedIssues.length,
@@ -331,7 +331,7 @@ module.exports = {
                 leaderboardRecord.linesRemoved += storedPull.linesRemoved;
                 leaderboardRecord.numOfTotalCommitsMerged += storedPull.commits;
                 leaderboardRecord.mergedPrs += 1
-            } else  {
+            } else {
                 leaderboardRecord.closedPrs += 1
             }
             return leaderboardRecord;
@@ -355,12 +355,13 @@ module.exports = {
         /**
          * @returns number of pull request for selected query (MERGED/CLOSED/OPEN)
          * @param query - graphql query to get total count of desired PR state
+         * @param ghObject
          */
-        getNumberOfPullRequests: async (query) => {
+        getNumberOfPullRequests: async (query, ghObject) => {
             const queryResult = await graphql(query,
                 {
-                    name: process.env.GITHUB_REPO,
-                    owner: process.env.GITHUB_OWNER,
+                    name: ghObject.repo,
+                    owner: ghObject.owner,
                     headers: {
                         authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
                     },
@@ -381,7 +382,7 @@ module.exports = {
                 if (oneRecord.totalAmountReceivedUSD <= 0) {
                     continue;
                 }
-                if (settings.ignoredUsers.includes(oneRecord.devLogin)) {
+                if (settings.payRolledUsers.includes(oneRecord.devLogin)) {
                     continue;
                 }
                 mdTable += module.exports.leaderboard.makeLeaderboardRecordMd(
@@ -547,10 +548,6 @@ module.exports = {
             return totalAmountUsd;
         },
 
-        /**
-         * @returns part of generated comment based on current saved streak.
-         * @param finishedStreak array of objects used to track finished issues in less than 7 days from assignment
-         */
         payoutMultiplierPartialComment: (finishedStreak) => {
             let partialComment = '';
             let totalAmountUsd = module.exports.finishedStreak.totalAmountUsd(finishedStreak);
@@ -566,22 +563,22 @@ module.exports = {
             }.`;
             return partialComment;
         },
-
     },
 
     burnRate: {
-
         createRecord: (pullRequest, period) => {
             let burnObject = {}
             if (period === 'week') {
                 burnObject.week = parseInt(moment(pullRequest.prMergedDate).format('w'))
+                burnObject.date = moment(pullRequest.prMergedDate).endOf('week').format('YYYY-MM-DD hh:mm');
+
             }
             if (period === 'month') {
                 burnObject.month = parseInt(moment(pullRequest.prMergedDate).format('M'))
+                burnObject.date = moment(pullRequest.prMergedDate).endOf('month').format('YYYY-MM-DD hh:mm');
+
             }
-            let burnDate = pullRequest.prMergedDate.toString()
             let amount = module.exports.getAmountUsdFromPullObject(pullRequest)
-            burnObject.date = burnDate
             burnObject.numberOfPaidPullRequests = 1
             burnObject.amountPaid = amount
             burnObject.numberOfPaidIssues = pullRequest.linkedIssues.length
@@ -661,7 +658,7 @@ module.exports = {
                 return `| Week ${record.week}/${moment(record.date).format('YY')} | ${record.numberOfPaidPullRequests} | $${Math.round(record.amountPaid)} | ${record.numberOfPeopleInvolved} | $${Math.round(record.avgPaidPr)} |\n`
             }
         },
-        burnRateHeaderMd: `<div align="center">  \n \n | Date | # of <br /> :moneybag: <br /> PRs | Total :moneybag: | # of <br /> :construction_worker: | :moneybag: / PR |
+        burnRateHeaderMd: `<div align="center">  \n \n | date | # of <br /> paid <br /> PRs | total :moneybag: | # of <br /> :construction_worker: | :moneybag: / PR |
 |:-----------------:|:-----------------------:|:----------------------:|:----------------:|:------------:| \n`,
         burnRateFooterMd: (totalPaidPullRequests, totalPeopleInvolved) => {
             return `\n \n **BURN RATE TABLE GENERATED BASED ON ${totalPaidPullRequests} PAID PULL REQUESTS AND CONTRIBUTIONS OF ${totalPeopleInvolved} PEOPLE** \n \n </div>`
