@@ -3,13 +3,10 @@ const lib = require('lib')({
 });
 const payout = require("./payout");
 const shared = require("./shared");
-const settings = require("./settings");
-
 
 module.exports = {
 
-    payoutPrClosed: async (payload) => {
-        let ghObject = {owner: payload.repository.owner.login, repo: payload.repository.name}
+    payoutPrClosed: async (payload, ghObject, settings) => {
         const prNumber = payload.pull_request.number;
         const prAuthor = payload.pull_request.user.login;
         const prMerged = payload.pull_request.merged;
@@ -18,14 +15,18 @@ module.exports = {
             console.log("Ignoring closing/merging PR from ignored user: " + prAuthor);
             return
         }
+
+        if (prMerged) {
+            await shared.updateCounter(ghObject, prNumber)
+        }
         console.log('PR NUMBER #', prNumber, ' is being closed!');
         let pullRequest = await payout.getPullRequest(prNumber, ghObject);
         const issueNumbers = payout.getLinkedIssues(pullRequest, ghObject);
-        let devObject = await shared.getDevObject(prAuthor);
+        let devObject = await shared.getDevObject(prAuthor, settings);
 
         for (let i = 0; i < issueNumbers.length; i++) {
             let issueNumber = issueNumbers[i];
-            let storedIssue = await shared.getDataCf(process.env.CLDFLR_ISSUES, issueNumber)
+            let storedIssue = await shared.getDataCf(settings.cfIssues, issueNumber)
             if (shared.checks.storedIssueExists(storedIssue)) {
                 if (storedIssue.prOpened === prNumber) {
                     storedIssue.prOpened = null
@@ -38,7 +39,7 @@ module.exports = {
                         prMerged
                     );
                 }
-                await shared.storeDataCf(process.env.CLDFLR_ISSUES, issueNumber, storedIssue)
+                await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue)
             }
         }
     }

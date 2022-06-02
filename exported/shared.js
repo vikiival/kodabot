@@ -1,10 +1,9 @@
 const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
 const {Octokit} = require('@octokit/rest');
 const octokit = new Octokit({
-    auth: process.env.GITHUB_PERSONAL_KEY,
+    auth: process.env.GH_KEY,
 });
 const moment = require('moment');
-const settings = require('./settings');
 module.exports = {
     /**
      * @returns modified Cloudflare URL for various CF calls
@@ -12,30 +11,30 @@ module.exports = {
      * @param key for CF KV workers
      */
     makeUrl: (namespace, key) =>
-        `https://api.cloudflare.com/client/v4/accounts/${process.env.CLDFLR_ACC_ID}/storage/kv/namespaces/${namespace}/values/${key}`,
+        `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACC}/storage/kv/namespaces/${namespace}/values/${key}`,
 
     /**
      * @returns array of keys for given namespace
      * @param namespace CF namespace ID stored in env. variables
      */
     getAllKeys: async (namespace) => {
-        const keysArray = [];
+        // const keysArray = [];
         const keysObject = JSON.parse(
             (
                 await lib.http.request['@1.1.6']({
                     method: 'GET',
-                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLDFLR_ACC_ID}/storage/kv/namespaces/${namespace}/keys`,
+                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACC}/storage/kv/namespaces/${namespace}/keys`,
                     headers: {
-                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
-                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
+                        'X-Auth-Email': process.env.CF_EMAIL,
+                        'X-Auth-Key': process.env.CF_API_KEY,
                     },
                 })
             ).body.toString()
         ).result;
-        for (let i = 0; i < keysObject.length; i++) {
-            keysArray.push(parseInt(keysObject[i].name));
-        }
-        return keysArray;
+        // for (let i = 0; i < keysObject.length; i++) {
+        //     keysArray.push(parseInt(keysObject[i].name));
+        // }
+        return keysObject;
     },
 
     /**
@@ -50,8 +49,8 @@ module.exports = {
                     method: 'GET',
                     url: module.exports.makeUrl(namespace, key),
                     headers: {
-                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
-                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
+                        'X-Auth-Email': process.env.CF_EMAIL,
+                        'X-Auth-Key': process.env.CF_API_KEY,
                     },
                 })
             ).body.toString()
@@ -69,10 +68,28 @@ module.exports = {
             method: 'PUT',
             url: module.exports.makeUrl(namespace, key),
             headers: {
-                'X-Auth-Email': process.env.CLDFLR_EMAIL,
-                'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
+                'X-Auth-Email': process.env.CF_EMAIL,
+                'X-Auth-Key': process.env.CF_API_KEY,
             },
             body: JSON.stringify(value),
+
+        });
+    },
+
+    storeWithMetadataCf: async (namespace, key, value) => {
+        let formData = new FormData();
+        formData.append('value', JSON.stringify(value))
+        formData.append('metadata', JSON.stringify({"someMetadata": "someValue"}))
+        await lib.http.request['@1.1.6']({
+            method: 'PUT',
+            url: module.exports.makeUrl(namespace, key),
+            headers: {
+                'X-Auth-Email': process.env.CF_EMAIL,
+                'X-Auth-Key': process.env.CF_API_KEY,
+                'Content-Type': 'multipart/form-data'
+            },
+            body: formData,
+x
         });
     },
 
@@ -81,24 +98,25 @@ module.exports = {
             method: 'DELETE',
             url: module.exports.makeUrl(namespace, key),
             headers: {
-                'X-Auth-Email': process.env.CLDFLR_EMAIL,
-                'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY
+                'X-Auth-Email': process.env.CF_EMAIL,
+                'X-Auth-Key': process.env.CF_API_KEY
             }
         });
     },
     /**
      * @returns devObject stored on CF
      * @param devLogin - key used to 'GET' devObject from CF
+     * @param settings
      * */
-    getDevObject: async (devLogin) =>
+    getDevObject: async (devLogin, settings) =>
         JSON.parse(
             (
                 await lib.http.request['@1.1.6']({
                     method: 'GET',
-                    url: module.exports.makeUrl(process.env.CLDFLR_DEVS, devLogin),
+                    url: module.exports.makeUrl(settings.cfDevs, devLogin),
                     headers: {
-                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
-                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
+                        'X-Auth-Email': process.env.CF_EMAIL,
+                        'X-Auth-Key': process.env.CF_API_KEY,
                     },
                 })
             ).body.toString()
@@ -120,6 +138,28 @@ module.exports = {
                 body,
             }
         );
+    },
+
+    getSettings: async (ghObject) => {
+        const settings = await module.exports.getDataCf(process.env.CF_SETTINGS, `${ghObject.owner}/${ghObject.repo}`)
+        if (settings.result === null) {
+            return null
+        }
+        else {
+            return settings
+        }
+    },
+
+    updateCounter: async (ghObject, prNumber) => {
+        let counter = await module.exports.getDataCf(process.env.CF_COUNTERS, `${ghObject.owner}/${ghObject.repo}`)
+        if (counter.result === null) {
+            counter = [prNumber]
+        }
+        else {
+            counter.push(prNumber)
+        }
+        await module.exports.storeDataCf(process.env.CF_COUNTERS, `${ghObject.owner}/${ghObject.repo}`, counter)
+        return counter
     },
 
     /**
@@ -161,13 +201,13 @@ module.exports = {
     /**
      * @desc stores temporary issue object in case of later payments
      * */
-    storeTempIssuesAc: async (storedIssue, issueNumber) => {
+    storeTempIssue: async (storedIssue, issueNumber, settings) => {
         storedIssue.queue = [];
         storedIssue.prOpened = null;
         storedIssue.optionPeriod = null;
         storedIssue.optionHolder = null;
         storedIssue.assignmentPeriod = null;
-        await module.exports.storeDataCf(process.env.CLDFLR_ISSUES, issueNumber, storedIssue);
+        await module.exports.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
     },
 
     /**
@@ -195,16 +235,17 @@ module.exports = {
      * @param devLogin concerned dev login
      * @param issueNumber concerned issue number
      * @param storedIssue issue stored on AC KV storage
+     * @param settings
      * */
-    storeDevDropoutQueue: async (devLogin, issueNumber, storedIssue) => {
-        let devObject = await module.exports.getDevObject(devLogin);
+    storeDevDropoutQueue: async (devLogin, issueNumber, storedIssue, settings) => {
+        let devObject = await module.exports.getDevObject(devLogin, settings);
         if (!module.exports.checks.devObjectExists(devObject)) {
             devObject = module.exports.devObject();
         }
         if (!devObject.droppedQueue.includes(issueNumber)) {
             devObject.droppedQueue.push(issueNumber);
         }
-        await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
+        await module.exports.storeDataCf(settings.cfDevs, devLogin, devObject);
         if (storedIssue.queue.includes(devLogin)) {
             for (let i = 0; i < storedIssue.queue.length; i++) {
                 if (storedIssue.queue[i] === devLogin) {
@@ -216,7 +257,7 @@ module.exports = {
             storedIssue.optionHolder = null;
             storedIssue.optionPeriod = null;
         }
-        await module.exports.storeDataCf(process.env.CLDFLR_ISSUES, issueNumber, storedIssue);
+        await module.exports.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
         return storedIssue;
     },
 
@@ -226,8 +267,9 @@ module.exports = {
      * @param devLogin concerned dev login
      * @param issueNumber concerned issue number
      * @param prMerged boolean used to determine if PR was merged
+     * @param settings
      * */
-    updateDevObject: async (devObject, devLogin, issueNumber, prMerged) => {
+    updateDevObject: async (devObject, devLogin, issueNumber, prMerged, settings) => {
         if (devObject.finished.includes(issueNumber)) {
             return;
         }
@@ -250,7 +292,7 @@ module.exports = {
                 devObject.finished = [...new Set(devObject.finished)];
             }
         }
-        await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
+        await module.exports.storeDataCf(settings.cfDevs, devLogin, devObject);
     },
 
     checks: {
@@ -309,28 +351,28 @@ module.exports = {
         /**
          * @returns true if comment triggered by payout
          */
-        payoutPhrases: (commentBody) => {
-            return commentBody.includes(settings.payoutPhrase);
-        },
+        // payoutPhrases: (commentBody) => {
+        //     return commentBody.includes(settings.payoutPhrase);
+        // },
 
         /**
          * @returns true if tested user is on list of ignored users
          */
-        ignoredUsers: (testedUser) => {
+        ignoredUsers: (testedUser, settings) => {
             return settings.ignoredUsers.includes(testedUser);
         },
 
         /**
          * @returns true if comment content is on list of "pass phrases" for options and queue
          */
-        passPhrases: (commentBody) => {
+        passPhrases: (commentBody, settings) => {
             return settings.passPhrases.includes(commentBody);
         },
 
         /**
          * @returns true if assign bot was triggered
          */
-        goPhrases: (commentBody) => {
+        goPhrases: (commentBody, settings) => {
             return settings.goPhrases.includes(commentBody);
         },
 
@@ -365,8 +407,8 @@ module.exports = {
          */
         nextInQueueCommentCreator: (storedIssue, commentCreator) => {
             if (storedIssue.result !== null) {
-            return storedIssue.queue[0] === commentCreator;
-        }},
+                return storedIssue.queue[0] === commentCreator;
+            }},
 
         /**
          * @returns true if stored issue exists
@@ -523,7 +565,7 @@ module.exports = {
             return false;
         },
 
-        isIgnorePhrase(commentBody) {
+        isIgnorePhrase(commentBody, settings) {
             return settings.ignorePhrases.includes(commentBody);
         },
         isIssueIgnored(storedIssue) {
@@ -533,11 +575,11 @@ module.exports = {
                 return storedIssue.ignored === true;
             }
         },
-        isIssueBlocked(labels) {
+        isIssueBlocked(labels, settings) {
             return labels.includes(settings.blockedLabel);
         },
 
-        isIssueResearched(labels) {
+        isIssueResearched(labels, settings) {
             return labels.includes(settings.researchLabel);
         }
     },
