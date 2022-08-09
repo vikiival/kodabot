@@ -1,14 +1,15 @@
 const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
 const shared = require("./shared");
 const payout = require("./payout");
-const comments = require("./comments");
+const settings = require("./settings");
 
 
 module.exports = {
-    payoutPrOpened: async (payload, ghObject, settings) => {
-        const prNumber = payload.pull_request.number;
-        const prAuthor = payload.pull_request.user.login;
-        if (shared.checks.ignoredUsers(prAuthor, settings)
+    payoutPrOpened: async (context) => {
+        let ghObject= {owner: context.params.repository.owner.login, repo: context.params.repository.name}
+        const prNumber = context.params.pull_request.number;
+        const prAuthor = context.params.pull_request.user.login;
+        if (shared.checks.ignoredUsers(prAuthor)
         ) {
             console.log("Ignoring PR opened by ignored user: " + prAuthor);
             return
@@ -16,7 +17,7 @@ module.exports = {
         const issueNumbers = payout.getLinkedIssues(await payout.getPullRequest(prNumber, ghObject));
         for (let i = 0; i < issueNumbers.length; i++){
             let issueNumber = issueNumbers[i];
-            let storedIssue = await shared.getDataCf(settings.cfIssues, issueNumber);
+            let storedIssue = await shared.getDataAc(issueNumber);
             if (shared.checks.isIssueIgnored(storedIssue)) {
                 console.log("Ignoring PR opened on ignored issue: " + issueNumber);
                 return
@@ -25,10 +26,10 @@ module.exports = {
             if (shared.checks.linkedIssueNumber(issueNumber)) {
                 if (shared.checks.prAuthorIsAssigned(storedIssue, prAuthor)) {
                     storedIssue.prOpened = prNumber;
-                    await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
-                    await shared.createComment(prNumber, comments.successPr(prAuthor, issueNumber), ghObject);
+                    await shared.storeDataAc(issueNumber, storedIssue);
+                    await shared.createComment(prNumber, settings.comments.successPr(prAuthor, issueNumber), ghObject);
                 } else {
-                    await shared.createComment(prNumber, comments.warningPr(prAuthor, issueNumber), ghObject);
+                    await shared.createComment(prNumber, settings.comments.warningPr(prAuthor, issueNumber), ghObject);
                 }
             }
         }

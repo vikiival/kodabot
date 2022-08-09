@@ -1,30 +1,32 @@
 const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
+const settings = require('./settings.js');
 const shared = require("./shared");
 const assign = require("./assign");
-const comments = require("./comments");
-
 
 
 module.exports = {
-    assignIssueUnassigned: async (payload, ghObject, settings) => {
-        let unassigned = payload.assignee.login;
-        let sender = payload.sender.login;
-        let issueNumber = parseInt(payload.issue.number);
+    assignIssueUnassigned: async (context) => {
+        let ghObject= {owner: context.params.repository.owner.login, repo: context.params.repository.name}
+        let unassigned = context.params.assignee.login;
+        let sender = context.params.sender.login;
+        let issueNumber = parseInt(context.params.issue.number);
         console.log(unassigned, sender, issueNumber, 'unassigned', 'sender', 'issueNumber');
-        if (shared.checks.ignoredUsers(unassigned, settings)
+        if (shared.checks.ignoredUsers(unassigned)
         ) {
             console.log("unassignment detected,", unassigned + " is ignored");
             return;
         }
-        let storedIssue = await shared.getDataCf(settings.cfIssues, issueNumber);
+        let storedIssue = await shared.getDataAc(
+            issueNumber
+        );
         if (shared.checks.isIssueIgnored(storedIssue)) {
             console.log("unassignment detected,", issueNumber + " is ignored");
             return;
         }
         if (shared.checks.storedIssueExists(storedIssue)) {
-            if (storedIssue.assignee === unassigned && storedIssue.assignee === sender || storedIssue.assignee === unassigned && shared.checks.ignoredUsers(sender, settings)) {
+            if (storedIssue.assignee === unassigned && storedIssue.assignee === sender || storedIssue.assignee === unassigned && shared.checks.ignoredUsers(sender)) {
                 let devObject = await shared.getDevObject(
-                    unassigned, settings
+                    unassigned
                 );
                 if (shared.checks.devObjectExists(devObject)) {
                     await shared.updateDevObject(devObject, unassigned, issueNumber, false)
@@ -33,13 +35,13 @@ module.exports = {
                     if (shared.checks.assignmentExpired(storedIssue)) {
                         await shared.createComment(
                             issueNumber,
-                            comments.assignmentExpired(storedIssue.assignee),
+                            settings.comments.assignmentExpired(storedIssue.assignee),
                             ghObject
                         )
                     } else {
                         await shared.createComment(
                             issueNumber,
-                            comments.unassignedUser(storedIssue.assignee),
+                            settings.comments.unassignedUser(storedIssue.assignee),
                             ghObject
                         )
                     }
@@ -47,13 +49,13 @@ module.exports = {
                     storedIssue.timeOfAssignment = null;
                     storedIssue.assignmentPeriod = null;
                     if (shared.checks.emptyIssue(storedIssue)) {
-                        await shared.deleteDataCf(settings.cfIssues, issueNumber)
+                        await shared.deleteStoredDataAc(issueNumber)
                         return;
                     } else if (shared.checks.queuedDevs(storedIssue)) {
                         storedIssue = await assign.toggleOptionPeriod(storedIssue, issueNumber)
                         await shared.createComment(
                             issueNumber,
-                            comments.optionPeriodStarted(storedIssue.optionHolder, storedIssue.optionPeriod, settings),
+                            settings.comments.optionPeriodStarted(storedIssue.optionHolder, storedIssue.optionPeriod),
                             ghObject
                         )
                     }

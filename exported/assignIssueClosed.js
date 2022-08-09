@@ -4,20 +4,20 @@ const payout = require("./payout");
 const assign = require("./assign");
 
 module.exports = {
-    assignIssueClosed: async (payload, ghObject, settings) => {
-        const issueNumber = payload.issue.number;
-        let storedIssue = await shared.getDataCf(settings.cfIssues, issueNumber);
+    assignIssueClosed: async (context) => {
+        const issueNumber = context.params.issue.number;
+        let storedIssue = await shared.getDataAc(issueNumber);
         if (shared.checks.storedIssueExists(storedIssue)) {
             if (shared.checks.isIssueIgnored(storedIssue)) {
-                await shared.deleteDataCf(settings.cfIssues, issueNumber);
+                await shared.deleteStoredDataAc(issueNumber);
                 return;
             }
             storedIssue = await assign.handleOtherWebhook(issueNumber)
-            let devObject = await shared.getDevObject(storedIssue.assignee, settings)
+            let devObject = await shared.getDevObject(storedIssue.assignee)
             if (shared.checks.devObjectExists(devObject)) {
                 await shared.updateDevObject(devObject, storedIssue.assignee, issueNumber, false)
             }
-            await shared.storeTempIssue(storedIssue, issueNumber, settings);
+            await shared.storeTempIssuesAc(storedIssue, issueNumber);
         }
     }
 }

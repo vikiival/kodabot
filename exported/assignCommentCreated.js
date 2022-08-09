@@ -1,42 +1,46 @@
 const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
-const comments = require('./comments.js');
+const settings = require('./settings.js');
 const shared = require("./shared");
 const assign = require("./assign");
 
 
 module.exports = {
 
-    assignCommentCreated: async (payload, ghObject, settings) => {
-        console.log('COMMENT BODY', payload.comment.body)
-        const commentCreator = payload.comment.user.login;
-        const commentBody = (payload.comment.body).replace(/\s+/g, '')
-        const issueNumber = payload.issue.number;
-        let storedIssue = await shared.getDataCf(settings.cfIssues, issueNumber);
-        let devObject = await shared.getDevObject(commentCreator, settings);
-        let labels;
-        payload.issue.pull_request === undefined ? labels = await assign.getIssueLabels(issueNumber, ghObject) : console.log('PR comment')
+    assignCommentCreated: async (context) => {
+        let ghObject= {owner: context.params.repository.owner.login, repo: context.params.repository.name}
+        console.log('assign comment created', ghObject)
+        if (context.params.issue.pull_request !== undefined) {
+            console.log('COMMENT ON PR');
+            return;
+        }
+        const commentCreator = context.params.comment.user.login;
+        console.log('COMMENT BODY', context.params.comment.body)
+        const commentBody = (context.params.comment.body).replace(/\s+/g, '')
+        const issueNumber = context.params.issue.number;
+        let labels = await assign.getIssueLabels(issueNumber, ghObject);
 
-        if (shared.checks.ignoredUsers(commentCreator, settings)) {
+        if (shared.checks.ignoredUsers(commentCreator)) {
             console.log("comment created,", commentCreator + " is ignored");
             return;
         }
-
-        if (shared.checks.isIgnorePhrase(commentBody, settings)) {
+        let storedIssue = await shared.getDataAc(issueNumber);
+        let devObject = await shared.getDevObject(commentCreator);
+        if (shared.checks.isIgnorePhrase(commentBody)) {
             console.log('IGNORED PHRASE')
             let collaborators = await assign.getCollaborators(shared.queries.getCollaborators, ghObject);
             if (collaborators.includes(commentCreator)) {
-                await assign.makeIssueIgnored(issueNumber, commentCreator, storedIssue, devObject, ghObject, settings)
-                await shared.createComment(issueNumber, comments.issueIgnored(issueNumber), ghObject);
-                console.log('ignored issue,', await shared.getDataCf(settings.cfIssues, issueNumber))
+                await assign.makeIssueIgnored(issueNumber, commentCreator, storedIssue, devObject, ghObject)
+                await shared.createComment(issueNumber, settings.comments.issueIgnored(issueNumber), ghObject);
+                console.log('ignored issue,', await shared.getDataAc(issueNumber))
                 return
             }
         }
-        if (shared.checks.passPhrases(commentBody, settings)) {
+        if (shared.checks.passPhrases(commentBody)) {
             console.log("Passphrase detected", commentCreator, issueNumber);
             if (shared.checks.queueForDev(commentCreator, storedIssue)) {
                 await shared.createComment(
                     issueNumber,
-                    comments.queueDropout(commentCreator),
+                    settings.comments.queueDropout(commentCreator),
                     ghObject
                 );
                 storedIssue = await shared.storeDevDropoutQueue(
@@ -49,7 +53,7 @@ module.exports = {
             if (shared.checks.optionAvailability(storedIssue, commentCreator)) {
                 await shared.createComment(
                     issueNumber,
-                    comments.optionPassed(commentCreator),
+                    settings.comments.optionPassed(commentCreator),
                     ghObject
                 );
                 storedIssue = await shared.storeDevDropoutQueue(
@@ -64,41 +68,40 @@ module.exports = {
                     );
                     await shared.createComment(
                         issueNumber,
-                        comments.optionPeriodStarted(
+                        settings.comments.optionPeriodStarted(
                             storedIssue.optionHolder,
-                            storedIssue.optionPeriod,
-                            settings
+                            storedIssue.optionPeriod
                         ),
                         ghObject
                     );
                 }
                 return;
             }
-        } else if (shared.checks.goPhrases(commentBody, settings)) {
+        } else if (shared.checks.goPhrases(commentBody)) {
             console.log("Go phrase detected", commentCreator, issueNumber);
             if (shared.checks.isIssueIgnored(storedIssue)) {
                 console.log("comment created,", issueNumber + " is ignored");
                 await shared.createComment(
                     issueNumber,
-                    comments.issueIgnoredResp(issueNumber),
+                    settings.comments.issueIgnoredResp(issueNumber),
                     ghObject
                 );
                 return;
             }
-            if (shared.checks.isIssueBlocked(labels, settings)) {
+            if (shared.checks.isIssueBlocked(labels)) {
                 console.log("comment created,", issueNumber + " is blocked");
                 await shared.createComment(
                     issueNumber,
-                    comments.issueBlocked(issueNumber),
+                    settings.comments.issueBlocked(issueNumber),
                     ghObject
                 );
                 return;
             }
-            if (shared.checks.isIssueResearched(labels, settings)){
+            if (shared.checks.isIssueResearched(labels)){
                 console.log("comment created,", issueNumber + " is researched");
                 await shared.createComment(
                     issueNumber,
-                    comments.issueResearch(issueNumber),
+                    settings.comments.issueResearch(issueNumber),
                     ghObject
                 );
                 return;
@@ -107,7 +110,7 @@ module.exports = {
                 if (shared.checks.devAssignmentLimit(devObject)) {
                     await shared.createComment(
                         issueNumber,
-                        comments.assignmentLimit(commentCreator, devObject.assigned),
+                        settings.comments.assignmentLimit(commentCreator, devObject.assigned),
                         ghObject
                     );
                     return;
@@ -115,7 +118,7 @@ module.exports = {
                 if (shared.checks.devUnfinished(devObject, issueNumber)) {
                     await shared.createComment(
                         issueNumber,
-                        comments.errorUnassigned(commentCreator),
+                        settings.comments.errorUnassigned(commentCreator),
                         ghObject
                     );
                     return;
@@ -123,7 +126,7 @@ module.exports = {
                 if (shared.checks.devQueueDropout(devObject, issueNumber)) {
                     await shared.createComment(
                         issueNumber,
-                        comments.alreadyDropout(commentCreator),
+                        settings.comments.alreadyDropout(commentCreator),
                         ghObject
                     );
                     return;
@@ -133,7 +136,7 @@ module.exports = {
                 if (shared.checks.prOpened(storedIssue)) {
                     await shared.createComment(
                         issueNumber,
-                        comments.errorMessagePR(commentCreator, storedIssue.prOpened),
+                        settings.comments.errorMessagePR(commentCreator, storedIssue.prOpened),
                         ghObject
                     );
                     return;
@@ -142,10 +145,10 @@ module.exports = {
                     if (shared.checks.assignmentExpired(storedIssue)) {
                         await shared.createComment(
                             issueNumber,
-                            comments.assignmentExpired(commentCreator),
+                            settings.comments.assignmentExpired(commentCreator),
                             ghObject
                         );
-                        storedIssue = await assign.unassignIssue(issueNumber, storedIssue, commentCreator, ghObject, settings);
+                        storedIssue = await assign.unassignIssue(issueNumber, storedIssue, commentCreator, ghObject);
                         await shared.updateDevObject(devObject, commentCreator, issueNumber, false);
                         if (shared.checks.queuedDevs(storedIssue)) {
                             storedIssue = await assign.toggleOptionPeriod(
@@ -154,10 +157,9 @@ module.exports = {
                             );
                             await shared.createComment(
                                 issueNumber,
-                                comments.optionPeriodStarted(
+                                settings.comments.optionPeriodStarted(
                                     storedIssue.optionHolder,
-                                    storedIssue.optionPeriod,
-                                    settings
+                                    storedIssue.optionPeriod
                                 ),
                                 ghObject
                             );
@@ -166,10 +168,9 @@ module.exports = {
                     } else {
                         await shared.createComment(
                             issueNumber,
-                            comments.alreadyAssigned(
+                            settings.comments.alreadyAssigned(
                                 commentCreator,
-                                storedIssue.assignmentPeriod,
-                                settings
+                                storedIssue.assignmentPeriod
                             ),
                             ghObject
                         );
@@ -181,7 +182,7 @@ module.exports = {
                     storedIssue.optionPeriod = null;
                     await shared.createComment(
                         issueNumber,
-                        comments.optionUsed(commentCreator),
+                        settings.comments.optionUsed(commentCreator),
                         ghObject
                     );
                     await assign.storeAssignComment(
@@ -190,15 +191,14 @@ module.exports = {
                         issueNumber,
                         commentCreator,
                         labels,
-                        ghObject,
-                        settings
+                        ghObject
                     );
                     return;
                 }
                 if (shared.checks.optionExpired(storedIssue)) {
                     await shared.createComment(
                         issueNumber,
-                        comments.optionPeriodExpired(storedIssue.optionHolder),
+                        settings.comments.optionPeriodExpired(storedIssue.optionHolder),
                         ghObject
                     );
                     storedIssue = await shared.storeDevDropoutQueue(
@@ -210,7 +210,7 @@ module.exports = {
                         if (shared.checks.nextInQueueCommentCreator(storedIssue, commentCreator)) {
                             await shared.createComment(
                                 issueNumber,
-                                comments.optionPeriodSkipped(commentCreator)),
+                                settings.comments.optionPeriodSkipped(commentCreator)),
                                 ghObject
                             await assign.removeDevFromQueue(storedIssue, commentCreator);
                             await assign.storeAssignComment(
@@ -219,17 +219,15 @@ module.exports = {
                                 issueNumber,
                                 commentCreator,
                                 labels,
-                                ghObject,
-                                settings
+                                ghObject
                             );
                         } else {
                             storedIssue = await assign.toggleOptionPeriod(storedIssue, issueNumber)
                             await shared.createComment(
                                 issueNumber,
-                                comments.optionPeriodStarted(
+                                settings.comments.optionPeriodStarted(
                                     storedIssue.optionHolder,
-                                    storedIssue.optionPeriod,
-                                    settings
+                                    storedIssue.optionPeriod
                                 ),
                                 ghObject
                             );
@@ -240,16 +238,16 @@ module.exports = {
                 if (shared.checks.assignmentExpired(storedIssue)) {
                     await shared.createComment(
                         issueNumber,
-                        comments.assignmentExpired(storedIssue.assignee),
+                        settings.comments.assignmentExpired(storedIssue.assignee),
                         ghObject
                     );
-                    await shared.updateDevObject(await shared.getDataCf(settings.cfDevs, storedIssue.assignee), storedIssue.assignee, issueNumber, false);
-                    storedIssue = await assign.unassignIssue(issueNumber, storedIssue, storedIssue.assignee, ghObject, settings)
+                    await shared.updateDevObject(await shared.getDataCf(process.env.CLDFLR_DEVS, storedIssue.assignee), storedIssue.assignee, issueNumber, false);
+                    storedIssue = await assign.unassignIssue(issueNumber, storedIssue, storedIssue.assignee, ghObject)
                     if (shared.checks.queuedDevs(storedIssue)) {
                         if (shared.checks.nextInQueueCommentCreator(storedIssue, commentCreator)) {
                             await shared.createComment(
                                 issueNumber,
-                                comments.optionPeriodSkipped(commentCreator)),
+                                settings.comments.optionPeriodSkipped(commentCreator)),
                                 ghObject
                             await assign.removeDevFromQueue(storedIssue, commentCreator);
                             await assign.storeAssignComment(
@@ -258,26 +256,24 @@ module.exports = {
                                 issueNumber,
                                 commentCreator,
                                 labels,
-                                ghObject,
-                                settings
+                                ghObject
                             );
                             return;
                         } else {
                             storedIssue = await assign.toggleOptionPeriod(storedIssue, issueNumber)
                             await shared.createComment(
                                 issueNumber,
-                                comments.optionPeriodStarted(
+                                settings.comments.optionPeriodStarted(
                                     storedIssue.optionHolder,
-                                    storedIssue.optionPeriod,
-                                    settings
+                                    storedIssue.optionPeriod
                                 ),
                                 ghObject
                             );
                             storedIssue.queue.push(commentCreator);
-                            await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+                            await shared.storeDataAc(issueNumber, storedIssue);
                             await shared.createComment(
                                 issueNumber,
-                                comments.addedToQueue(commentCreator, storedIssue.queue),
+                                settings.comments.addedToQueue(commentCreator, storedIssue.queue),
                                 ghObject
                             );
                         }
@@ -289,24 +285,23 @@ module.exports = {
                             issueNumber,
                             commentCreator,
                             labels,
-                            ghObject,
-                            settings
+                            ghObject
                         );
                     }
 
                 } else if (!shared.checks.queueForDev(commentCreator, storedIssue)) {
                     storedIssue.queue.push(commentCreator);
-                    await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+                    await shared.storeDataAc(issueNumber, storedIssue);
                     await shared.createComment(
                         issueNumber,
-                        comments.addedToQueue(commentCreator, storedIssue.queue),
+                        settings.comments.addedToQueue(commentCreator, storedIssue.queue),
                         ghObject
                     );
                     return;
                 } else {
                     await shared.createComment(
                         issueNumber,
-                        comments.alreadyInQueue(commentCreator, storedIssue.queue),
+                        settings.comments.alreadyInQueue(commentCreator, storedIssue.queue),
                         ghObject
                     );
                     return;
@@ -319,8 +314,7 @@ module.exports = {
                     issueNumber,
                     commentCreator,
                     labels,
-                    ghObject,
-                    settings
+                    ghObject
                 );
             }
         }

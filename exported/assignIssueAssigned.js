@@ -1,53 +1,54 @@
 const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
+const settings = require('./settings.js');
 const shared = require("./shared");
 const assign = require("./assign");
-const comments = require("./comments");
 
 
 module.exports = {
 
-    assignIssueAssigned: async (payload, ghObject, settings) => {
-        const sender = payload.sender.login
-        if (shared.checks.ignoredUsers(sender, settings)) {
+    assignIssueAssigned: async (context) => {
+        let ghObject = {owner: context.params.repository.owner.login, repo: context.params.repository.name}
+        const sender = context.params.sender.login
+        if (shared.checks.ignoredUsers(sender)) {
             return;
         }
-        const issueNumber = payload.issue.number;
-        let storedIssue = await shared.getDataCf(settings.cfIssues, issueNumber)
+        const issueNumber = context.params.issue.number;
+        let storedIssue = await shared.getDataAc(issueNumber)
         let labels = await assign.getIssueLabels(issueNumber, ghObject)
         if (shared.checks.storedIssueExists(storedIssue)) {
             return;
         } else {
-            const assignee = payload.assignee.login;
-            if (shared.checks.ignoredUsers(assignee, settings)) {
+            const assignee = context.params.assignee.login;
+            if (shared.checks.ignoredUsers(assignee)) {
                 return;
             } else {
-                let devObject = await shared.getDevObject(assignee, settings);
+                let devObject = await shared.getDevObject(assignee);
                 if (shared.checks.devObjectExists(devObject)) {
                     if (shared.checks.devAssignmentLimit(devObject)) {
                         await shared.createComment(
                             issueNumber,
-                            comments.assignmentLimit(assignee, devObject.assigned),
+                            settings.comments.assignmentLimit(assignee, devObject.assigned),
                             ghObject
                         );
-                        await assign.unassignIssue(issueNumber, storedIssue, assignee, ghObject, settings);
+                        await assign.unassignIssue(issueNumber, storedIssue, assignee, ghObject);
                         return;
                     }
                     if (shared.checks.devUnfinished(devObject, issueNumber)) {
                         await shared.createComment(
                             issueNumber,
-                            comments.errorUnassigned(assignee),
+                            settings.comments.errorUnassigned(assignee),
                             ghObject
                         );
-                        await assign.unassignIssue(issueNumber, storedIssue, assignee, settings);
+                        await assign.unassignIssue(issueNumber, storedIssue, assignee, ghObject);
                         return;
                     }
                     if (shared.checks.devQueueDropout(devObject, issueNumber)) {
                         await shared.createComment(
                             issueNumber,
-                            comments.alreadyDropout(assignee),
+                            settings.comments.alreadyDropout(assignee),
                             ghObject
                         );
-                        await assign.unassignIssue(issueNumber, storedIssue, assignee, ghObject, settings);
+                        await assign.unassignIssue(issueNumber, storedIssue, assignee, ghObject);
                         return;
                     }
                 }
@@ -57,8 +58,7 @@ module.exports = {
                     issueNumber,
                     assignee,
                     labels,
-                    ghObject,
-                    settings
+                    ghObject
                 );
             }
         }

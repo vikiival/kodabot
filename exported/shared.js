@@ -1,9 +1,10 @@
 const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
 const {Octokit} = require('@octokit/rest');
 const octokit = new Octokit({
-    auth: process.env.GH_KEY,
+    auth: process.env.GITHUB_PERSONAL_KEY,
 });
 const moment = require('moment');
+const settings = require('./settings');
 module.exports = {
     /**
      * @returns modified Cloudflare URL for various CF calls
@@ -11,30 +12,30 @@ module.exports = {
      * @param key for CF KV workers
      */
     makeUrl: (namespace, key) =>
-        `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACC}/storage/kv/namespaces/${namespace}/values/${key}`,
+        `https://api.cloudflare.com/client/v4/accounts/${process.env.CLDFLR_ACC_ID}/storage/kv/namespaces/${namespace}/values/${key}`,
 
     /**
      * @returns array of keys for given namespace
      * @param namespace CF namespace ID stored in env. variables
      */
     getAllKeys: async (namespace) => {
-        // const keysArray = [];
+        const keysArray = [];
         const keysObject = JSON.parse(
             (
                 await lib.http.request['@1.1.6']({
                     method: 'GET',
-                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACC}/storage/kv/namespaces/${namespace}/keys`,
+                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLDFLR_ACC_ID}/storage/kv/namespaces/${namespace}/keys`,
                     headers: {
-                        'X-Auth-Email': process.env.CF_EMAIL,
-                        'X-Auth-Key': process.env.CF_API_KEY,
+                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
+                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
                     },
                 })
             ).body.toString()
         ).result;
-        // for (let i = 0; i < keysObject.length; i++) {
-        //     keysArray.push(parseInt(keysObject[i].name));
-        // }
-        return keysObject;
+        for (let i = 0; i < keysObject.length; i++) {
+            keysArray.push(parseInt(keysObject[i].name));
+        }
+        return keysArray;
     },
 
     /**
@@ -49,8 +50,8 @@ module.exports = {
                     method: 'GET',
                     url: module.exports.makeUrl(namespace, key),
                     headers: {
-                        'X-Auth-Email': process.env.CF_EMAIL,
-                        'X-Auth-Key': process.env.CF_API_KEY,
+                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
+                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
                     },
                 })
             ).body.toString()
@@ -68,55 +69,27 @@ module.exports = {
             method: 'PUT',
             url: module.exports.makeUrl(namespace, key),
             headers: {
-                'X-Auth-Email': process.env.CF_EMAIL,
-                'X-Auth-Key': process.env.CF_API_KEY,
+                'X-Auth-Email': process.env.CLDFLR_EMAIL,
+                'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
             },
             body: JSON.stringify(value),
-
         });
     },
 
-    storeWithMetadataCf: async (namespace, key, value) => {
-        let formData = new FormData();
-        formData.append('value', JSON.stringify(value))
-        formData.append('metadata', JSON.stringify({"someMetadata": "someValue"}))
-        await lib.http.request['@1.1.6']({
-            method: 'PUT',
-            url: module.exports.makeUrl(namespace, key),
-            headers: {
-                'X-Auth-Email': process.env.CF_EMAIL,
-                'X-Auth-Key': process.env.CF_API_KEY,
-                'Content-Type': 'multipart/form-data'
-            },
-            body: formData,
-x
-        });
-    },
 
-    deleteDataCf: async (namespace, key) => {
-        return await lib.http.request['@1.1.7']({
-            method: 'DELETE',
-            url: module.exports.makeUrl(namespace, key),
-            headers: {
-                'X-Auth-Email': process.env.CF_EMAIL,
-                'X-Auth-Key': process.env.CF_API_KEY
-            }
-        });
-    },
     /**
      * @returns devObject stored on CF
      * @param devLogin - key used to 'GET' devObject from CF
-     * @param settings
      * */
-    getDevObject: async (devLogin, settings) =>
+    getDevObject: async (devLogin) =>
         JSON.parse(
             (
                 await lib.http.request['@1.1.6']({
                     method: 'GET',
-                    url: module.exports.makeUrl(settings.cfDevs, devLogin),
+                    url: module.exports.makeUrl(process.env.CLDFLR_DEVS, devLogin),
                     headers: {
-                        'X-Auth-Email': process.env.CF_EMAIL,
-                        'X-Auth-Key': process.env.CF_API_KEY,
+                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
+                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
                     },
                 })
             ).body.toString()
@@ -138,28 +111,6 @@ x
                 body,
             }
         );
-    },
-
-    getSettings: async (ghObject) => {
-        const settings = await module.exports.getDataCf(process.env.CF_SETTINGS, `${ghObject.owner}/${ghObject.repo}`)
-        if (settings.result === null) {
-            return null
-        }
-        else {
-            return settings
-        }
-    },
-
-    updateCounter: async (ghObject, prNumber) => {
-        let counter = await module.exports.getDataCf(process.env.CF_COUNTERS, `${ghObject.owner}/${ghObject.repo}`)
-        if (counter.result === null) {
-            counter = [prNumber]
-        }
-        else {
-            counter.push(prNumber)
-        }
-        await module.exports.storeDataCf(process.env.CF_COUNTERS, `${ghObject.owner}/${ghObject.repo}`, counter)
-        return counter
     },
 
     /**
@@ -201,13 +152,13 @@ x
     /**
      * @desc stores temporary issue object in case of later payments
      * */
-    storeTempIssue: async (storedIssue, issueNumber, settings) => {
+    storeTempIssuesAc: async (storedIssue, issueNumber) => {
         storedIssue.queue = [];
         storedIssue.prOpened = null;
         storedIssue.optionPeriod = null;
         storedIssue.optionHolder = null;
         storedIssue.assignmentPeriod = null;
-        await module.exports.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+        await module.exports.storeDataAc(issueNumber, storedIssue);
     },
 
     /**
@@ -235,17 +186,16 @@ x
      * @param devLogin concerned dev login
      * @param issueNumber concerned issue number
      * @param storedIssue issue stored on AC KV storage
-     * @param settings
      * */
-    storeDevDropoutQueue: async (devLogin, issueNumber, storedIssue, settings) => {
-        let devObject = await module.exports.getDevObject(devLogin, settings);
+    storeDevDropoutQueue: async (devLogin, issueNumber, storedIssue) => {
+        let devObject = await module.exports.getDevObject(devLogin);
         if (!module.exports.checks.devObjectExists(devObject)) {
             devObject = module.exports.devObject();
         }
         if (!devObject.droppedQueue.includes(issueNumber)) {
             devObject.droppedQueue.push(issueNumber);
         }
-        await module.exports.storeDataCf(settings.cfDevs, devLogin, devObject);
+        await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
         if (storedIssue.queue.includes(devLogin)) {
             for (let i = 0; i < storedIssue.queue.length; i++) {
                 if (storedIssue.queue[i] === devLogin) {
@@ -257,7 +207,7 @@ x
             storedIssue.optionHolder = null;
             storedIssue.optionPeriod = null;
         }
-        await module.exports.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+        await module.exports.storeDataAc(issueNumber, storedIssue);
         return storedIssue;
     },
 
@@ -267,13 +217,12 @@ x
      * @param devLogin concerned dev login
      * @param issueNumber concerned issue number
      * @param prMerged boolean used to determine if PR was merged
-     * @param settings
      * */
-    updateDevObject: async (devObject, devLogin, issueNumber, prMerged, settings) => {
+    updateDevObject: async (devObject, devLogin, issueNumber, prMerged) => {
         if (devObject.finished.includes(issueNumber)) {
             return;
         }
-        if (devObject.unfinished.includes(issueNumber) && prMerged) {
+        if (devObject.unfinished.includes(issueNumber) && prMerged){
             devObject.finished.push(issueNumber);
             devObject.unfinished.splice(devObject.unfinished.indexOf(issueNumber), 1);
         }
@@ -292,7 +241,7 @@ x
                 devObject.finished = [...new Set(devObject.finished)];
             }
         }
-        await module.exports.storeDataCf(settings.cfDevs, devLogin, devObject);
+        await module.exports.storeDataCf(process.env.CLDFLR_DEVS, devLogin, devObject);
     },
 
     checks: {
@@ -314,7 +263,7 @@ x
          * @returns true if PR was opened for this issue
          */
         prOpened: (storedIssue) => {
-            return storedIssue.prOpened !== null && storedIssue.prOpened !== undefined;
+            return storedIssue.prOpened !== null;
         },
 
         /**
@@ -323,7 +272,7 @@ x
         assignmentExpired: (storedIssue) => {
             return (
                 moment() > moment(storedIssue.assignmentPeriod) &&
-                storedIssue.assignmentPeriod !== null && storedIssue.assignmentPeriod !== undefined
+                storedIssue.assignmentPeriod !== null
             );
         },
 
@@ -344,35 +293,35 @@ x
         optionExpired: (storedIssue) => {
             return (
                 moment(storedIssue.optionPeriod) < moment() &&
-                storedIssue.optionPeriod !== null && storedIssue.optionPeriod !== undefined
+                storedIssue.optionPeriod !== null
             );
         },
 
         /**
          * @returns true if comment triggered by payout
          */
-        // payoutPhrases: (commentBody) => {
-        //     return commentBody.includes(settings.payoutPhrase);
-        // },
+        payoutPhrases: (commentBody) => {
+            return commentBody.includes(settings.payoutPhrase);
+        },
 
         /**
          * @returns true if tested user is on list of ignored users
          */
-        ignoredUsers: (testedUser, settings) => {
+        ignoredUsers: (testedUser) => {
             return settings.ignoredUsers.includes(testedUser);
         },
 
         /**
          * @returns true if comment content is on list of "pass phrases" for options and queue
          */
-        passPhrases: (commentBody, settings) => {
+        passPhrases: (commentBody) => {
             return settings.passPhrases.includes(commentBody);
         },
 
         /**
          * @returns true if assign bot was triggered
          */
-        goPhrases: (commentBody, settings) => {
+        goPhrases: (commentBody) => {
             return settings.goPhrases.includes(commentBody);
         },
 
@@ -387,12 +336,7 @@ x
          * @returns true if queue contains dev
          */
         queueForDev: (devLogin, storedIssue) => {
-            if (storedIssue.result !== null) {
-                return storedIssue.queue.includes(devLogin);
-            }
-            else {
-                return false
-            }
+            return storedIssue.queue.includes(devLogin);
         },
 
         /**
@@ -406,15 +350,14 @@ x
          * @returns true if next in queue is comment creator
          */
         nextInQueueCommentCreator: (storedIssue, commentCreator) => {
-            if (storedIssue.result !== null) {
-                return storedIssue.queue[0] === commentCreator;
-            }},
+            return storedIssue.queue[0] === commentCreator;
+        },
 
         /**
          * @returns true if stored issue exists
          */
         storedIssueExists: (storedIssue) => {
-            return storedIssue.result !== null;
+            return storedIssue !== null;
         },
 
         /**
@@ -490,7 +433,7 @@ x
          * @returns true if prAuthor matches storedIssue assignee
          */
         prAuthorIsAssigned: (storedIssue, prAuthor) => {
-            if (storedIssue.result === null) {
+            if (storedIssue === null) {
                 return false;
             }
             return storedIssue.assignee === prAuthor;
@@ -565,21 +508,21 @@ x
             return false;
         },
 
-        isIgnorePhrase(commentBody, settings) {
+        isIgnorePhrase(commentBody) {
             return settings.ignorePhrases.includes(commentBody);
         },
         isIssueIgnored(storedIssue) {
-            if (storedIssue.result === null) {
+            if (storedIssue === null) {
                 return false
             } else {
                 return storedIssue.ignored === true;
             }
         },
-        isIssueBlocked(labels, settings) {
+        isIssueBlocked(labels) {
             return labels.includes(settings.blockedLabel);
         },
 
-        isIssueResearched(labels, settings) {
+        isIssueResearched(labels){
             return labels.includes(settings.researchLabel);
         }
     },

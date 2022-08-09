@@ -2,11 +2,11 @@ const lib = require('lib')({token: process.env.STDLIB_SECRET_TOKEN});
 const moment = require('moment');
 const {Octokit} = require('@octokit/rest');
 const octokit = new Octokit({
-    auth: process.env.GH_KEY,
+    auth: process.env.GITHUB_PERSONAL_KEY,
 });
 const {graphql} = require('@octokit/graphql');
+const settings = require("./settings");
 const shared = require("./shared");
-const comments = require("./comments");
 
 module.exports = {
 
@@ -61,7 +61,6 @@ module.exports = {
      * @param commentCreator login of dev triggering the bot
      * @param labels pulled from issue
      * @param ghObject
-     * @param settings
      * */
     storeAssignComment: async (
         storedIssue,
@@ -69,16 +68,15 @@ module.exports = {
         issueNumber,
         commentCreator,
         labels,
-        ghObject,
-        settings
+        ghObject
     ) => {
-        let timeFromBountyLabel = await module.exports.getBountyTime(labels, settings);
+        let timeFromBountyLabel = await module.exports.getBountyTime(labels);
         timeFromBountyLabel = timeFromBountyLabel * (await module.exports.isVerifiedContributor(commentCreator, ghObject) ? 1.5 : 1)
 
         const assignmentPeriod = moment()
             .add(timeFromBountyLabel, `${settings.timeSpan}`)
             .format(); // TESTING can be done by setting time to seconds
-        if (storedIssue.result !== null) {
+        if (storedIssue !== null) {
             storedIssue.assignee = commentCreator;
             storedIssue.timeOfAssignment = moment().format();
             storedIssue.assignmentPeriod = assignmentPeriod;
@@ -103,19 +101,18 @@ module.exports = {
             devObject = shared.devObject();
             devObject.assigned.push(issueNumber);
         }
-        await shared.storeDataCf(settings.cfDevs, commentCreator, devObject);
-        await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+        await shared.storeDataCf(process.env.CLDFLR_DEVS, commentCreator, devObject);
+        await shared.storeDataAc(issueNumber, storedIssue);
         let currentAssignees = await module.exports.getAssignees(issueNumber, shared.queries.getAssignees, ghObject);
         if (!currentAssignees.includes(commentCreator)) {
             await module.exports.assignIssue(issueNumber, commentCreator, ghObject);
         }
         await shared.createComment(
             issueNumber,
-            comments.successAssign(
+            settings.comments.successAssign(
                 commentCreator,
                 timeFromBountyLabel,
-                assignmentPeriod,
-                settings
+                assignmentPeriod
             ),
             ghObject
         );
@@ -145,9 +142,8 @@ module.exports = {
      * @param storedIssue
      * @param assignee to be removed from array of assignees on GH
      * @param ghObject
-     * @param settings
      */
-    unassignIssue: async (issueNumber, storedIssue, assignee, ghObject, settings) => {
+    unassignIssue: async (issueNumber, storedIssue, assignee, ghObject) => {
         await octokit.request(
             'DELETE /repos/{owner}/{repo}/issues/{issue_number}/assignees',
             {
@@ -161,7 +157,7 @@ module.exports = {
             storedIssue.assignee = null;
             storedIssue.timeOfAssignment = null;
             storedIssue.assignmentPeriod = null;
-            await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+            await shared.storeDataAc(issueNumber, storedIssue);
             return storedIssue;
         }
     },
@@ -170,9 +166,8 @@ module.exports = {
      * @returns time allocated to issue based on label. If multiple labels present, returns one with the longest time.
      * If no bounty label present, returns 24
      * @param labels pulled from issue
-     * @param settings
      */
-    getBountyTime: async (labels, settings) => {
+    getBountyTime: async (labels) => {
         let bountyTime = 0;
         let goodFirstIssue = 1;
         for (let i = 0; i < labels.length; i++) {
@@ -198,7 +193,7 @@ module.exports = {
      * @param storedIssue issue stored in AC KV storage
      * @param issueNumber number of concerned issue
      * */
-    toggleOptionPeriod: async (storedIssue, issueNumber, settings) => {
+    toggleOptionPeriod: async (storedIssue, issueNumber) => {
         storedIssue.optionHolder = storedIssue.queue[0];
         storedIssue.optionPeriod = moment()
             .add(settings.optionHours, `${settings.timeSpan}`)
@@ -207,7 +202,7 @@ module.exports = {
             storedIssue,
             storedIssue.optionHolder
         );
-        await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+        await shared.storeDataAc(issueNumber, storedIssue);
         return storedIssue
     },
 
@@ -216,7 +211,7 @@ module.exports = {
      * @param storedIssue issue object
      * @param devLogin login of dev
      * */
-        removeDevFromQueue: (storedIssue, devLogin) => {
+    removeDevFromQueue: (storedIssue, devLogin) => {
         for (let i = 0; i < storedIssue.queue.length; i++) {
             if (storedIssue.queue[i] === devLogin) {
                 storedIssue.queue.splice(i, 1);
@@ -229,11 +224,10 @@ module.exports = {
     /**
      * @desc Handles other webhook running at the same time, returns updated data from AC KV storage
      * @param issueNumber number of concerned issue
-     * @param settings
      * */
-    handleOtherWebhook: async (issueNumber, settings) => {
+    handleOtherWebhook: async (issueNumber) => {
         await new Promise((r) => setTimeout(r, 3000));
-        return await shared.getDataCf(settings.cfIssues, issueNumber)
+        return await shared.getDataAc(issueNumber);
     },
 
     /**
@@ -249,7 +243,7 @@ module.exports = {
                 owner: ghObject.owner,
                 number: issueNumber,
                 headers: {
-                    authorization: `token ${process.env.GH_KEY}`,
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
                 },
             }
         );
@@ -264,7 +258,7 @@ module.exports = {
                 name: ghObject.repo,
                 owner: ghObject.owner,
                 headers: {
-                    authorization: `token ${process.env.GH_KEY}`,
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
                 },
             }
         );
@@ -272,7 +266,7 @@ module.exports = {
             (dev) => dev.login
         );
     },
-    makeIssueIgnored: async (issueNumber, commentCreator, storedIssue, devObject, ghObject, settings) => {
+    makeIssueIgnored: async (issueNumber, commentCreator, storedIssue, devObject, ghObject) => {
         if (storedIssue !== null) {
             if (storedIssue.assignee === commentCreator) {
                 if (devObject.assigned.includes(issueNumber)) {
@@ -281,25 +275,25 @@ module.exports = {
                             devObject.assigned.splice(i, 1);
                         }
                     }
-                    await shared.storeDataCf(settings.cfDevs, commentCreator, devObject)
+                    await shared.storeDataCf(process.env.CLDFLR_DEVS, commentCreator, devObject)
                 }
             } else if (storedIssue.assignee !== null && storedIssue.assignee !== commentCreator) {
-                let assigneeDevObject = await shared.getDevObject(storedIssue.assignee, settings);
+                let assigneeDevObject = await shared.getDevObject(storedIssue.assignee);
                 if (assigneeDevObject.assigned.includes(issueNumber)) {
                     for (let i = 0; i < assigneeDevObject.assigned.length; i++) {
                         if (assigneeDevObject.assigned[i] === issueNumber) {
                             assigneeDevObject.assigned.splice(i, 1);
                         }
                     }
-                    await shared.storeDataCf(settings.cfDevs, storedIssue.assignee, assigneeDevObject)
+                    await shared.storeDataCf(process.env.CLDFLR_DEVS, storedIssue.assignee, assigneeDevObject)
                 }
             }
             storedIssue.ignored = true;
-            await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+            await shared.storeDataAc(issueNumber, storedIssue);
         } else {
             storedIssue = module.exports.issueObject(null, null, null, null, null, null, ghObject.owner, ghObject.repo)
             storedIssue.ignored = true;
-            await shared.storeDataCf(settings.cfIssues, issueNumber, storedIssue);
+            await shared.storeDataAc(issueNumber, storedIssue);
         }
     },
     isVerifiedContributor: async (author, ghObject) => {
@@ -308,7 +302,7 @@ module.exports = {
                 qstr: `repo:${ghObject.owner}/${ghObject.repo} type:pr is:merged author:${author}`,
                 first: 11,
                 headers: {
-                    authorization: `token ${process.env.GH_KEY}`,
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
                 },
             }
         );
@@ -322,7 +316,7 @@ module.exports = {
                 owner: ghObject.owner,
                 number: issueNumber,
                 headers: {
-                    authorization: `token ${process.env.GH_KEY}`,
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
                 }
             }
         );
