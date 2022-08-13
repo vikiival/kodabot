@@ -24,10 +24,10 @@ module.exports = {
             (
                 await lib.http.request['@1.1.6']({
                     method: 'GET',
-                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLDFLR_ACC_ID}/storage/kv/namespaces/${namespace}/keys`,
+                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACC}/storage/kv/namespaces/${namespace}/keys`,
                     headers: {
-                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
-                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
+                        'X-Auth-Email': process.env.CF_EMAIL,
+                        'X-Auth-Key': process.env.CF_API_KEY,
                     },
                 })
             ).body.toString()

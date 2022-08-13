@@ -19,18 +19,18 @@ module.exports = {
     getPullRequest: async (prNumber, ghObject) => {
         let queryResult = await graphql(shared.queries.getPullRequest,
             {
-                repo: ghObject.repo,
-                owner: ghObject.owner,
+                repo: process.env.GH_REPO,
+                owner: process.env.GH_OWNER,
                 prNumber: prNumber,
                 headers: {
-                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                    authorization: `token ${process.env.GH_KEY}`,
                 },
             }
         );
         queryResult = queryResult.repository.pullRequest
         let transactions = []
         return {
-            prLeaderboard: false,
+            prLeaderboard: true,
             prNumber: queryResult.number,
             prAuthor: queryResult.author.login,
             prState: queryResult.state,
