@@ -25,7 +25,7 @@
 | LatinSoul | $100.17/0.36KSM | $100.17 | 3 | 1 | 2 | 32/32 | 5 | 17 | 5.67 | 0/3 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x14101d25cb4ddc73159dfadabba18c6e3f98fa369dfce47cefde7699d964a538) |
 | thea-exe | $99.98/0.66KSM | $20 | 6 | 5 | 1 | 124/163 | 27 | 25 | 4.17 | 2/6 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x093bdf32d514684250b6290a530fc8fe2cc4e24804cd41b654020b1a7d0cfa6f) |
 | lluuk | $99.85/1.188KSM | $99.85 | 1 | 1 | 0 | 96/45 | 3 | 4 | 4 | 1/1 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0xecc52b711290f3e65bd6ca299969c744daef3b207aa0f559794f80162b41d10a) |
-| niklasp | $69.92/1.297KSM | $Infinity | 2 | 0 | 2 | 89/44 | 13 | 30 | 15 | 2/2 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x45d462929a92cf313468bf95e1e20e7f06412402ff2242db27c80e9a460d34b6) |
+| niklasp | $69.92/1.297KSM | $69.92 | 2 | 0 | 2 | 89/44 | 13 | 30 | 15 | 2/2 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x45d462929a92cf313468bf95e1e20e7f06412402ff2242db27c80e9a460d34b6) |
 | fairywellos | $52.95/0.12KSM | $52.95 | 2 | 1 | 1 | 40/9 | 9 | 11 | 5.5 | 2/2 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x9b8c61de44f59da4d0ba0ffda3b732470435bc9042604fe3c2f04a3df2585542) |
 | Spatlani | $50.72/0.97KSM | $50.72 | 1 | 1 | 0 | 1/0 | 1 | 5 | 5 | 1/1 |[Link to last transaction](https://kusama.subscan.io/extrinsic/0x5e61ec9cdc3065480bffb98a3bbcecabbf74102f230e1382610b1a0e06bfd9dd) |
 
