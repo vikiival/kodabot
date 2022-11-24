@@ -20,21 +20,25 @@ module.exports = {
      */
     getAllKeys: async (namespace) => {
         const keysArray = [];
-        const keysObject = JSON.parse(
+        const response = JSON.parse(
             (
                 await lib.http.request['@1.1.6']({
                     method: 'GET',
-                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACC}/storage/kv/namespaces/${namespace}/keys`,
+                    url: `https://api.cloudflare.com/client/v4/accounts/${process.env.CLDFLR_ACC_ID}/storage/kv/namespaces/${namespace}/keys`,
                     headers: {
-                        'X-Auth-Email': process.env.CF_EMAIL,
-                        'X-Auth-Key': process.env.CF_API_KEY,
+                        'X-Auth-Email': process.env.CLDFLR_EMAIL,
+                        'X-Auth-Key': process.env.CLDFLR_GLOBAL_API_KEY,
                     },
+                    cursor: '',
                 })
             ).body.toString()
-        ).result;
+        );
+        const keysObject = response.result;
+        const cursor = response.result_info.cursor;
         for (let i = 0; i < keysObject.length; i++) {
             keysArray.push(parseInt(keysObject[i].name));
         }
+        console.log(cursor)
         return keysArray;
     },
 
@@ -635,6 +639,48 @@ module.exports = {
                       }
                     }
                   }
-                }`
+                }`,
+        getAllPullRequests: `
+                query getPrNumbers($repo: String!, $owner: String!){
+                  organization(login: $owner) {
+                    repository(name: $repo) {
+                      pullRequests(
+                        first: 100
+                        orderBy: {field: UPDATED_AT, direction: DESC}
+                
+                      ) {
+                        nodes {
+                          number
+                          state
+                          updatedAt
+                        }
+                        pageInfo {
+                          endCursor
+                        }
+                      }
+                    }
+                  }
+                }`,
+        getAllPullRequestsWithEndCursor: `
+                    query getPrNumbers($repo: String!,$owner:String!, $after: String!){
+                      organization(login: $owner) {
+                        repository(name: $repo) {
+                          pullRequests(
+                            first: 100
+                            orderBy: {field: UPDATED_AT, direction: DESC}
+                            after: $after
+                          ) {
+                            nodes {
+                              number
+                              state
+                              updatedAt
+                            }
+                            pageInfo {
+                              endCursor
+                            }
+                          }
+                        }
+                      }
+                    }`
     },
 };

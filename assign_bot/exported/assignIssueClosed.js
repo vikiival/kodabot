@@ -17,7 +17,6 @@ module.exports = {
             if (shared.checks.devObjectExists(devObject)) {
                 await shared.updateDevObject(devObject, storedIssue.assignee, issueNumber, false)
             }
-            await shared.storeTempIssuesAc(storedIssue, issueNumber);
         }
     }
 }

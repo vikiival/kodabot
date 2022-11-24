@@ -579,7 +579,7 @@ module.exports = {
 
             }
             let amount = module.exports.getAmountUsdFromPullObject(pullRequest)
-            burnObject.numberOfPaidPullRequests = 1
+            burnObject.numberOfTransactions = 1
             burnObject.amountPaid = amount
             burnObject.numberOfPaidIssues = pullRequest.linkedIssues.length
             burnObject.numberOfPeopleInvolved = 1
@@ -588,11 +588,11 @@ module.exports = {
             return burnObject
         },
         updateRecord: (burnRecord, pullRequest) => {
-            burnRecord.numberOfPaidPullRequests += 1
+            burnRecord.numberOfTransactions += 1
             burnRecord.amountPaid += module.exports.getAmountUsdFromPullObject(pullRequest)
             burnRecord.numberOfPaidIssues += pullRequest.linkedIssues.length
             burnRecord.numberOfPeopleInvolved += 1
-            burnRecord.avgPaidPr = burnRecord.amountPaid / burnRecord.numberOfPaidPullRequests
+            burnRecord.avgPaidPr = burnRecord.amountPaid / burnRecord.numberOfTransactions
             if (!burnRecord.peopleInvolved.includes(pullRequest.prAuthor)) {
                 burnRecord.peopleInvolved.push(pullRequest.prAuthor)
             }
@@ -637,10 +637,10 @@ module.exports = {
             );
             weekRecord.amountPaid -= module.exports.getAmountUsdFromPullObject(pullRequest)
             weekRecord.amountPaid += module.exports.getAmountUsdFromPullObject(newPullRequest)
-            weekRecord.avgPaidPr = weekRecord.amountPaid / weekRecord.numberOfPaidPullRequests
+            weekRecord.avgPaidPr = weekRecord.amountPaid / weekRecord.numberOfTransactions
             monthRecord.amountPaid -= module.exports.getAmountUsdFromPullObject(pullRequest)
             monthRecord.amountPaid += module.exports.getAmountUsdFromPullObject(newPullRequest)
-            monthRecord.avgPaidPr = monthRecord.amountPaid / monthRecord.numberOfPaidPullRequests
+            monthRecord.avgPaidPr = monthRecord.amountPaid / monthRecord.numberOfTransactions
             await shared.storeDataCf(process.env.CLDFLR_TABLES, 'burnRate', burnRate)
         },
         makeBurnRateMdTable: (burnRate) => {
@@ -653,9 +653,9 @@ module.exports = {
         },
         makeBurnRateRecordMd: (record) => {
             if (record.month !== undefined) {
-                return `| :date: ***${`${moment(record.date).format('MMMM')} ${moment(record.date).year()}`}*** | ***${record.numberOfPaidPullRequests}*** | ***$${Math.round(record.amountPaid)}*** | ***${record.numberOfPeopleInvolved}*** | ***$${Math.round(record.avgPaidPr)}*** |\n `
+                return `| :date: ***${`${moment(record.date).format('MMMM')} ${moment(record.date).year()}`}*** | ***${record.numberOfTransactions}*** | ***$${Math.round(record.amountPaid)}*** | ***${record.numberOfPeopleInvolved}*** | ***$${Math.round(record.avgPaidPr)}*** |\n `
             } else {
-                return `| Week ${record.week}/${moment(record.date).format('YY')} | ${record.numberOfPaidPullRequests} | $${Math.round(record.amountPaid)} | ${record.numberOfPeopleInvolved} | $${Math.round(record.avgPaidPr)} |\n`
+                return `| Week ${record.week}/${moment(record.date).format('YY')} | ${record.numberOfTransactions} | $${Math.round(record.amountPaid)} | ${record.numberOfPeopleInvolved} | $${Math.round(record.avgPaidPr)} |\n`
             }
         },
         burnRateHeaderMd: `<div align="center">  \n \n | date | # of <br /> paid <br /> PRs | total :moneybag: | # of <br /> :construction_worker: | :moneybag: / PR |
@@ -667,7 +667,7 @@ module.exports = {
             let totalPaidPullRequests = 0
             for (let i = 0; i < burnRate.length; i++) {
                 if (burnRate[i].week !== undefined) {
-                    totalPaidPullRequests += burnRate[i].numberOfPaidPullRequests
+                    totalPaidPullRequests += burnRate[i].numberOfTransactions
                 }
             }
             return totalPaidPullRequests

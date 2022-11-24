@@ -13,22 +13,69 @@ const btoa = require('btoa');
 
 module.exports = {
 
+    getPullRequestNumbers: async () => {
+        return await graphql(shared.queries.getAllPullRequests,
+            {
+                repo: process.env.GITHUB_REPO,
+                owner: process.env.GITHUB_OWNER,
+                headers: {
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                },
+            }
+        )
+    },
+
+    getAllPullRequestsWithEndCursor: async (endCursor) => {
+        return await graphql(shared.queries.getAllPullRequests,
+            {
+                repo: process.env.GITHUB_REPO,
+                owner: process.env.GITHUB_OWNER,
+                after: endCursor,
+                headers: {
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
+                },
+            }
+        )
+    },
+
+    processPullRequests: (withoutCursor, withCursor) => {
+        let pullRequests = [];
+        withoutCursor.forEach(element => {
+
+            if (element.state !== 'OPEN' && moment(element.updatedAt) > moment().subtract(7,'d')) {
+                pullRequests.push(element.number)}
+        })
+        withCursor.forEach(element => {
+            if (element.state !== 'OPEN' && moment(element.updatedAt) > moment().subtract(7,'d')) {
+                pullRequests.push(element.number)}
+        })
+        return pullRequests
+    },
+
+    getAllPullRequestNumbers: async () => {
+        const withoutCursor = await module.exports.getPullRequestNumbers()
+        const endCursor = withoutCursor.organization.repository.pullRequests.pageInfo.endCursor
+        const withCursor = await module.exports.getAllPullRequestsWithEndCursor(endCursor)
+        return module.exports.processPullRequests(withoutCursor.organization.repository.pullRequests.nodes, withCursor.organization.repository.pullRequests.nodes)
+    },
+
     /**
      * @returns pull request object based on data from GitHub
      * */
-    getPullRequest: async (prNumber, ghObject) => {
+    getPullRequest: async (prNumber) => {
         let queryResult = await graphql(shared.queries.getPullRequest,
             {
-                repo: process.env.GH_REPO,
-                owner: process.env.GH_OWNER,
+                repo: process.env.GITHUB_REPO,
+                owner: process.env.GITHUB_OWNER,
                 prNumber: prNumber,
                 headers: {
-                    authorization: `token ${process.env.GH_KEY}`,
+                    authorization: `token ${process.env.GITHUB_PERSONAL_KEY}`,
                 },
             }
         );
         queryResult = queryResult.repository.pullRequest
-        let transactions = []
+        let transactions = await module.exports.getTransactions(queryResult.comments.nodes)
+        console.log(transactions)
         return {
             prLeaderboard: true,
             prNumber: queryResult.number,
@@ -106,8 +153,6 @@ module.exports = {
                 if (subscanResult) {
                     transactions.push({
                         transactionSuccess: subscanResult.data.data.success,
-                        paidUsd: subscanResult.data.data.success ? module.exports.roundTwoDecimals(ksmAmount * conversionRate) : 0,
-                        paidKsm: subscanResult.data.data.success ? module.exports.roundThreeDecimals(ksmAmount) : 0,
                         subscanLink: `https://kusama.subscan.io/extrinsic/${hashArray[i]}`,
                         subscanHash: hashArray[i]
                     })
@@ -161,13 +206,14 @@ module.exports = {
         }
     },
 
-    updateTables: async (leaderboard, burnRate) => {
-        await module.exports.pushTable(leaderboard, settings.leaderboardPath, settings.leaderboardFile, settings.leaderboardTitle)
-        let lastCommitSha = await module.exports.pushTable(burnRate, settings.burnRatePath, settings.burnRateFile, settings.burnRateTitle)
-        let newPull = await module.exports.createPullRequestForBot(settings.tablesTitle);
+    updateTables: async (leaderboard, burnRate, ghObject) => {
+        await module.exports.pushTable(leaderboard, settings.leaderboardPath, settings.leaderboardFile, settings.leaderboardTitle, ghObject)
+        let lastCommitSha = await module.exports.pushTable(burnRate, settings.burnRatePath, settings.burnRateFile, settings.burnRateTitle, ghObject)
+        let newPull = await module.exports.createPullRequestForBot(settings.tablesTitle, ghObject);
         return await module.exports.updateBotBranch(
             newPull.data.number,
-            lastCommitSha.data.commit.sha
+            lastCommitSha.data.commit.sha,
+            ghObject
         );
     },
 
@@ -222,7 +268,7 @@ module.exports = {
      * @returns information about commit, including SHA
      */
     pushTable: async (mdTable, gitPath, fileName, title, ghObject) => {
-        const sha = await module.exports.getShaKey(gitPath);
+        const sha = await module.exports.getShaKey(gitPath, ghObject);
         return await octokit.request(
             'PUT /repos/{owner}/{repo}/contents/{path}',
             {
@@ -373,9 +419,9 @@ module.exports = {
         /**
          * @returns MD version of leaderboard
          * */
-        makeLeaderboardMd: async (leaderboard) => {
-            let closedPullRequests = await module.exports.leaderboard.getNumberOfPullRequests(shared.queries.closedPullRequestsCount);
-            let mergedPullRequests = await module.exports.leaderboard.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount);
+        makeLeaderboardMd: async (leaderboard, ghObject) => {
+            let closedPullRequests = await module.exports.leaderboard.getNumberOfPullRequests(shared.queries.closedPullRequestsCount, ghObject);
+            let mergedPullRequests = await module.exports.leaderboard.getNumberOfPullRequests(shared.queries.mergedPullRequestsCount, ghObject);
             let mdTable = module.exports.leaderboard.tableHeader;
             for (let i = 0; i < leaderboard.length; i++) {
                 const oneRecord = leaderboard[i];
@@ -402,11 +448,13 @@ module.exports = {
          * @desc Generates one line of .md  version of leaderboard.
          * */
         makeLeaderboardRecordMd: (devLogin, leaderboardRecord) => {
+            // if mergedPr = 0 make it 1 to avoid division by zero
+            let mergedPrs = leaderboardRecord.mergedPrs === 0 ? 1 : leaderboardRecord.mergedPrs;
             let mdRow = [
                 devLogin,
                 module.exports.roundTwoDecimals(leaderboardRecord.totalAmountReceivedUSD),
                 module.exports.roundThreeDecimals(leaderboardRecord.totalAmountReceivedKSM),
-                module.exports.roundTwoDecimals(leaderboardRecord.totalAmountReceivedUSD / leaderboardRecord.mergedPrs),
+                module.exports.roundTwoDecimals(leaderboardRecord.totalAmountReceivedUSD / mergedPrs),
                 leaderboardRecord.numberOfOpenPrs,
                 leaderboardRecord.mergedPrs,
                 leaderboardRecord.closedPrs,
@@ -579,7 +627,7 @@ module.exports = {
 
             }
             let amount = module.exports.getAmountUsdFromPullObject(pullRequest)
-            burnObject.numberOfPaidPullRequests = 1
+            burnObject.numberOfTransactions = 1
             burnObject.amountPaid = amount
             burnObject.numberOfPaidIssues = pullRequest.linkedIssues.length
             burnObject.numberOfPeopleInvolved = 1
@@ -588,11 +636,11 @@ module.exports = {
             return burnObject
         },
         updateRecord: (burnRecord, pullRequest) => {
-            burnRecord.numberOfPaidPullRequests += 1
+            burnRecord.numberOfTransactions += 1
             burnRecord.amountPaid += module.exports.getAmountUsdFromPullObject(pullRequest)
             burnRecord.numberOfPaidIssues += pullRequest.linkedIssues.length
             burnRecord.numberOfPeopleInvolved += 1
-            burnRecord.avgPaidPr = burnRecord.amountPaid / burnRecord.numberOfPaidPullRequests
+            burnRecord.avgPaidPr = burnRecord.amountPaid / burnRecord.numberOfTransactions
             if (!burnRecord.peopleInvolved.includes(pullRequest.prAuthor)) {
                 burnRecord.peopleInvolved.push(pullRequest.prAuthor)
             }
@@ -637,10 +685,10 @@ module.exports = {
             );
             weekRecord.amountPaid -= module.exports.getAmountUsdFromPullObject(pullRequest)
             weekRecord.amountPaid += module.exports.getAmountUsdFromPullObject(newPullRequest)
-            weekRecord.avgPaidPr = weekRecord.amountPaid / weekRecord.numberOfPaidPullRequests
+            weekRecord.avgPaidPr = weekRecord.amountPaid / weekRecord.numberOfTransactions
             monthRecord.amountPaid -= module.exports.getAmountUsdFromPullObject(pullRequest)
             monthRecord.amountPaid += module.exports.getAmountUsdFromPullObject(newPullRequest)
-            monthRecord.avgPaidPr = monthRecord.amountPaid / monthRecord.numberOfPaidPullRequests
+            monthRecord.avgPaidPr = monthRecord.amountPaid / monthRecord.numberOfTransactions
             await shared.storeDataCf(process.env.CLDFLR_TABLES, 'burnRate', burnRate)
         },
         makeBurnRateMdTable: (burnRate) => {
@@ -653,9 +701,9 @@ module.exports = {
         },
         makeBurnRateRecordMd: (record) => {
             if (record.month !== undefined) {
-                return `| :date: ***${`${moment(record.date).format('MMMM')} ${moment(record.date).year()}`}*** | ***${record.numberOfPaidPullRequests}*** | ***$${Math.round(record.amountPaid)}*** | ***${record.numberOfPeopleInvolved}*** | ***$${Math.round(record.avgPaidPr)}*** |\n `
+                return `| :date: ***${`${moment(record.date).format('MMMM')} ${moment(record.date).year()}`}*** | ***${record.numberOfTransactions}*** | ***$${Math.round(record.amountPaid)}*** | ***${record.numberOfPeopleInvolved}*** | ***$${Math.round(record.avgPaidPr)}*** |\n `
             } else {
-                return `| Week ${record.week}/${moment(record.date).format('YY')} | ${record.numberOfPaidPullRequests} | $${Math.round(record.amountPaid)} | ${record.numberOfPeopleInvolved} | $${Math.round(record.avgPaidPr)} |\n`
+                return `| Week ${record.week}/${moment(record.date).format('YY')} | ${record.numberOfTransactions} | $${Math.round(record.amountPaid)} | ${record.numberOfPeopleInvolved} | $${Math.round(record.avgPaidPr)} |\n`
             }
         },
         burnRateHeaderMd: `<div align="center">  \n \n | date | # of <br /> paid <br /> PRs | total :moneybag: | # of <br /> :construction_worker: | :moneybag: / PR |
@@ -667,7 +715,7 @@ module.exports = {
             let totalPaidPullRequests = 0
             for (let i = 0; i < burnRate.length; i++) {
                 if (burnRate[i].week !== undefined) {
-                    totalPaidPullRequests += burnRate[i].numberOfPaidPullRequests
+                    totalPaidPullRequests += burnRate[i].numberOfTransactions
                 }
             }
             return totalPaidPullRequests

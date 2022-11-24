@@ -3,22 +3,19 @@ const {payoutPrOpened} = require("../exported/assignPrOpened");
 const {assignIssueUnassigned} = require("../exported/assignIssueUnassigned");
 const {assignIssueClosed} = require("../exported/assignIssueClosed");
 const {assignCommentCreated} = require("../exported/assignCommentCreated");
-const {payoutCommentCreated} = require("../exported/payoutCommentCreated");
 const {assignIssueAssigned} = require("../exported/assignIssueAssigned");
 
 let webhook = `${context.http.headers['x-github-event']}_${context.params.action}`
 
-console.log(webhook)
-
-if (webhook === 'issue_comment_created'){
+if (webhook === 'issue_comment_created') {
     await assignCommentCreated(context)
-    // await payoutCommentCreated(context)
+    console.log('comment created')
 }
-if (webhook === 'issue_comment_edited'){
+if (webhook === 'issue_comment_edited') {
     await assignCommentCreated(context)
-    // await payoutCommentCreated(context)
+    console.log('comment edited')
 }
-if (webhook === 'issues_closed'){
+if (webhook === 'issues_closed') {
     await assignIssueClosed(context)
     console.log('closed another issue!')
 }
