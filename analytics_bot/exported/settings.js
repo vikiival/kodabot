@@ -2,9 +2,9 @@ const moment = require('moment');
 module.exports = {
 
     // these need to be adjusted for sure
-    leaderboardTitle: `leaderboardUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
-    burnRateTitle: `burnRateUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
-    tablesTitle: `[skip netlify] tablesUpdate_${moment().format('MM-DD-YYYY')}`, // title of the pull request to be created by bot
+    leaderboardTitle: `leaderboard update ${moment().format('MMM Do YY')}`, // title of the commit to be created by bot
+    burnRateTitle: `burnRate update ${moment().format('MMM Do YY')}`, // title of the commit to be created by bot
+    tablesTitle: `[skip netlify] LEADERBOARD.md / BURN_RATE.md update`, // title of the pull request to be created by bot
     branchName: 'kodabot', // name of the branch to be created by bot
     leaderboardPath: `kodabot:LEADERBOARD.md`, // name of the bot branch
     leaderboardFile: 'LEADERBOARD.md', // name of the leaderboard file
