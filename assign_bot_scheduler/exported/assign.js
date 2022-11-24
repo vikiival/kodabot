@@ -4,7 +4,6 @@ const {Octokit} = require('@octokit/rest');
 const octokit = new Octokit({
     auth: process.env.GITHUB_PERSONAL_KEY,
 });
-const {graphql} = require('@octokit/graphql');
 const settings = require("./settings");
 const shared = require("./shared");
 
